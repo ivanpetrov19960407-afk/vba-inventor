@@ -181,7 +181,7 @@ Public Function TitleBlockDefinitionByName(ByVal oDoc As DrawingDocument, ByVal 
     On Error GoTo 0
 End Function
 
-Public Function RuText(ByVal ParamArray cps() As Variant) As String
+Public Function RuText(ParamArray cps() As Variant) As String
     Dim i As Long
     Dim result As String
 
