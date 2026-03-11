@@ -19,6 +19,11 @@ Private Const TB_R3_MM As Double = 45#
 
 Private Const A3_TOL_MM As Double = 0.05
 
+Private Const TOP_TABLE_H_MM As Double = 15#
+Private Const TOP_COL_1_MM As Double = 60#
+Private Const TOP_COL_2_MM As Double = 60#
+Private Const TOP_COL_3_MM As Double = 25#
+
 Public Sub Rkm_CreateOrApplyA3Frame_SPDS()
     Dim oDoc As DrawingDocument
     Dim oSheet As Sheet
@@ -136,11 +141,28 @@ Private Sub DrawSpdsBorderGeometry(ByVal oSketch As DrawingSketch)
     Debug.Print "Inner frame (cm): (" & Fmt(ix1) & "," & Fmt(iy1) & ") - (" & Fmt(ix2) & "," & Fmt(iy2) & ")"
     Debug.Print "Title zone (cm): (" & Fmt(tbX1) & "," & Fmt(tbY1) & ") - (" & Fmt(tbX2) & "," & Fmt(tbY2) & ")"
 
+    Dim topY1 As Double
+    Dim topX1 As Double
+    Dim topX2 As Double
+    Dim topX3 As Double
+
     oSketch.SketchLines.AddAsTwoPointRectangle P2d(x0, y0), P2d(xMax, yMax)
     oSketch.SketchLines.AddAsTwoPointRectangle P2d(ix1, iy1), P2d(ix2, iy2)
 
+    ' Bottom-right title-block placement zone outline (grid belongs to TitleBlockDefinition only).
     oSketch.SketchLines.AddByTwoPoints P2d(tbX1, iy1), P2d(tbX1, tbY2)
     oSketch.SketchLines.AddByTwoPoints P2d(tbX1, tbY2), P2d(ix2, tbY2)
+
+    ' Top service table (SPDS upper fields).
+    topY1 = iy2 - Mm(TOP_TABLE_H_MM)
+    topX1 = ix2 - Mm(TOP_COL_3_MM)
+    topX2 = topX1 - Mm(TOP_COL_2_MM)
+    topX3 = topX2 - Mm(TOP_COL_1_MM)
+
+    oSketch.SketchLines.AddByTwoPoints P2d(ix1, topY1), P2d(ix2, topY1)
+    oSketch.SketchLines.AddByTwoPoints P2d(topX1, topY1), P2d(topX1, iy2)
+    oSketch.SketchLines.AddByTwoPoints P2d(topX2, topY1), P2d(topX2, iy2)
+    oSketch.SketchLines.AddByTwoPoints P2d(topX3, topY1), P2d(topX3, iy2)
 End Sub
 
 Public Sub Rkm_SelfTest_SPDS_A3()
