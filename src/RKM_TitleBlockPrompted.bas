@@ -39,12 +39,16 @@ Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleB
     Exit Sub
 
 AddTitleBlockFailed:
-    MsgBox "Не удалось вставить штамп: " & CStr(Err.Number) & " - " & Err.Description, vbExclamation
+    MsgBox "Title block insertion failed" & vbCrLf & _
+           "Err.Number: " & CStr(Err.Number) & vbCrLf & _
+           "Err.Description: " & Err.Description, vbExclamation
 End Sub
 
 Private Function NormalizePromptValues(ByVal promptValues As Variant) As Variant
     Dim values(0 To 14) As String
     Dim defaults As Variant
+    Dim srcLower As Long
+    Dim srcUpper As Long
     Dim i As Long
 
     defaults = DefaultPromptValues()
@@ -52,16 +56,29 @@ Private Function NormalizePromptValues(ByVal promptValues As Variant) As Variant
         values(i) = SafePromptString(defaults(i), "")
     Next i
 
-    If IsArray(promptValues) Then
-        On Error GoTo InvalidPromptArray
-        If LBound(promptValues) = 0 And UBound(promptValues) = 14 Then
-            For i = 0 To 14
-                values(i) = SafePromptString(promptValues(i), values(i))
-            Next i
-        End If
-        On Error GoTo 0
+    If IsEmpty(promptValues) Or IsNull(promptValues) Then
+        NormalizePromptValues = values
+        Exit Function
     End If
 
+    If Not IsArray(promptValues) Then
+        NormalizePromptValues = values
+        Exit Function
+    End If
+
+    On Error GoTo InvalidPromptArray
+    srcLower = LBound(promptValues)
+    srcUpper = UBound(promptValues)
+
+    If srcLower > srcUpper Then GoTo InvalidPromptArray
+
+    For i = 0 To 14
+        If (srcLower + i) <= srcUpper Then
+            values(i) = SafePromptString(promptValues(srcLower + i), values(i))
+        End If
+    Next i
+
+    On Error GoTo 0
     NormalizePromptValues = values
     Exit Function
 
