@@ -55,10 +55,16 @@ Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleB
     If oSheet Is Nothing Then Exit Sub
     If oDef Is Nothing Then Exit Sub
 
-    prompts = BuildSpdsPromptStrings
+    prompts = BuildPromptStringsIfNeeded(oDef)
 
     RemoveSheetTitleBlock oSheet
-    oSheet.AddTitleBlock oDef, , , prompts
+    If IsEmpty(prompts) Then
+        oSheet.AddTitleBlock oDef
+    Else
+        oSheet.AddTitleBlock oDef, , , prompts
+    End If
+
+    Debug.Print "Applied title block: " & oDef.Name
     Exit Sub
 
 AddTitleBlockFailed:
@@ -67,16 +73,49 @@ AddTitleBlockFailed:
            "Err.Description: " & Err.Description, vbExclamation
 End Sub
 
-Private Function BuildSpdsPromptStrings() As Variant
-    Dim data(1 To 5) As String
+Private Function BuildPromptStringsIfNeeded(ByVal oDef As TitleBlockDefinition) As Variant
+    Dim oSketch As DrawingSketch
+    Dim oTextBox As TextBox
+    Dim promptNames() As String
+    Dim promptValues() As String
+    Dim promptCount As Long
+    Dim promptName As String
+    Dim i As Long
 
-    data(1) = "-"
-    data(2) = "-"
-    data(3) = "-"
-    data(4) = "1"
-    data(5) = "1"
+    If oDef Is Nothing Then Exit Function
 
-    BuildSpdsPromptStrings = data
+    On Error Resume Next
+    Set oSketch = oDef.Sketch
+    On Error GoTo 0
+    If oSketch Is Nothing Then Exit Function
+
+    For Each oTextBox In oSketch.TextBoxes
+        promptName = ExtractPromptName(oTextBox.Text)
+        If Len(promptName) > 0 Then
+            promptCount = promptCount + 1
+            ReDim Preserve promptNames(1 To promptCount)
+            promptNames(promptCount) = promptName
+        End If
+    Next oTextBox
+
+    If promptCount = 0 Then Exit Function
+
+    ReDim promptValues(1 To promptCount)
+    For i = 1 To promptCount
+        promptValues(i) = GetPromptDefaultValue(promptNames(i))
+    Next i
+
+    Debug.Print "Prompted fields detected: " & CStr(promptCount)
+    BuildPromptStringsIfNeeded = promptValues
+End Function
+
+Private Function GetPromptDefaultValue(ByVal promptName As String) As String
+    Select Case UCase$(promptName)
+        Case PROMPT_DOC_NAME, PROMPT_OBJ_NAME, PROMPT_STAGE, PROMPT_SHEET, PROMPT_SHEETS
+            GetPromptDefaultValue = ""
+        Case Else
+            GetPromptDefaultValue = ""
+    End Select
 End Function
 
 Private Sub DrawTitleBlockGeometry(ByVal oDoc As DrawingDocument, ByVal oSketch As DrawingSketch)
@@ -136,4 +175,21 @@ End Sub
 
 Private Function PromptToken(ByVal name As String) As String
     PromptToken = "<Prompt>" & name & "</Prompt>"
+End Function
+
+Private Function ExtractPromptName(ByVal textValue As String) As String
+    Const OPEN_TAG As String = "<Prompt>"
+    Const CLOSE_TAG As String = "</Prompt>"
+
+    Dim p1 As Long
+    Dim p2 As Long
+
+    p1 = InStr(1, textValue, OPEN_TAG, vbTextCompare)
+    If p1 = 0 Then Exit Function
+
+    p1 = p1 + Len(OPEN_TAG)
+    p2 = InStr(p1, textValue, CLOSE_TAG, vbTextCompare)
+    If p2 <= p1 Then Exit Function
+
+    ExtractPromptName = Mid$(textValue, p1, p2 - p1)
 End Function
