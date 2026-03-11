@@ -33,7 +33,6 @@ End Sub
 Public Sub RKM_RebuildDefinitionsInActiveDrawing()
     Dim oDoc As DrawingDocument
     Dim oBorderDef As BorderDefinition
-    Dim oTitleDef As TitleBlockDefinition
 
     If Not CanEditDrawingResources(ThisApplication) Then Exit Sub
 
@@ -41,31 +40,24 @@ Public Sub RKM_RebuildDefinitionsInActiveDrawing()
     If oDoc Is Nothing Then Exit Sub
 
     Set oBorderDef = EnsureRkmBorderDefinition(oDoc)
-    Set oTitleDef = EnsureRkmTitleBlockDefinition(oDoc)
 
-    If oBorderDef Is Nothing Or oTitleDef Is Nothing Then
-        MsgBox "Could not rebuild one or more definitions.", vbExclamation
+    If oBorderDef Is Nothing Then
+        MsgBox "Could not rebuild border definition.", vbExclamation
         Exit Sub
     End If
 
-    MsgBox "Definitions are rebuilt or versioned in the active drawing.", vbInformation
+    MsgBox "Border definition is rebuilt or versioned in the active drawing.", vbInformation
 End Sub
 
 Private Sub ApplyRkmResourcesToSheet(ByVal oDoc As DrawingDocument, ByVal oSheet As Sheet)
     Dim oBorderDef As BorderDefinition
-    Dim oTitleDef As TitleBlockDefinition
-    Dim prompts As Variant
 
     If oDoc Is Nothing Then Exit Sub
     If oSheet Is Nothing Then Exit Sub
 
     Set oBorderDef = EnsureRkmBorderDefinition(oDoc)
-    Set oTitleDef = EnsureRkmTitleBlockDefinition(oDoc)
-
-    prompts = DefaultPromptValues()
 
     Call ApplyRkmBorderToSheet(oSheet, oBorderDef)
-    Call ApplyRkmTitleBlockToSheet(oSheet, oTitleDef, prompts)
 
-    MsgBox "RKM border and prompted title block were applied.", vbInformation
+    MsgBox "RKM A3 border was applied.", vbInformation
 End Sub
