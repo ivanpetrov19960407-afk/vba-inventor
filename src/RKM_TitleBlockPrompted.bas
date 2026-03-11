@@ -104,14 +104,12 @@ End Function
 
 Private Sub DrawTitleBlockGrid(ByVal oSketch As DrawingSketch)
     ' Compact GOST Form 3 stamp only.
-    Call oSketch.SketchLines.AddAsTwoPointRectangle(Pt(0#, 0#), Pt(TB_W, TB_H))
+    Call oSketch.SketchLines.AddAsTwoPointRectangle(Pt(12.4, 0#), Pt(TB_W, TB_H))
 
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 4.2), Pt(TB_W, 4.2))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 3.0), Pt(TB_W, 3.0))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 2.0), Pt(TB_W, 2.0))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 1.0), Pt(TB_W, 1.0))
+    Call oSketch.SketchLines.AddByTwoPoints(Pt(12.4, 3.0), Pt(TB_W, 3.0))
+    Call oSketch.SketchLines.AddByTwoPoints(Pt(12.4, 2.0), Pt(TB_W, 2.0))
+    Call oSketch.SketchLines.AddByTwoPoints(Pt(12.4, 1.0), Pt(TB_W, 1.0))
 
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(12.4, 0#), Pt(12.4, TB_H))
     Call oSketch.SketchLines.AddByTwoPoints(Pt(14.2, 0#), Pt(14.2, 3.0))
     Call oSketch.SketchLines.AddByTwoPoints(Pt(16.0, 0#), Pt(16.0, 3.0))
 End Sub
@@ -123,16 +121,7 @@ Private Sub AddStaticLabels(ByVal oSketch As DrawingSketch)
 End Sub
 
 Private Sub AddPromptedFields(ByVal oSketch As DrawingSketch)
-    Call oSketch.TextBoxes.AddFitted(Pt(0.3, 4.45), "RKM-000")
-    Call oSketch.TextBoxes.AddFitted(Pt(0.3, 3.25), "OBJ 1")
-    Call oSketch.TextBoxes.AddFitted(Pt(0.3, 2.25), "OBJ 2")
-    Call oSketch.TextBoxes.AddFitted(Pt(0.3, 1.25), "OBJ 3")
-
     Call oSketch.TextBoxes.AddFitted(Pt(12.6, 4.45), "SEC 1")
     Call oSketch.TextBoxes.AddFitted(Pt(12.6, 3.25), "SEC 2")
     Call oSketch.TextBoxes.AddFitted(Pt(12.6, 2.25), "SEC 3")
-
-    Call oSketch.TextBoxes.AddFitted(Pt(0.3, 0.25), "ORG")
-    Call oSketch.TextBoxes.AddFitted(Pt(6.0, 0.25), "IVANOV")
-    Call oSketch.TextBoxes.AddFitted(Pt(9.6, 0.25), "01.01.2026")
 End Sub
