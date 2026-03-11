@@ -26,16 +26,12 @@ Public Function EnsureRkmTitleBlockDefinition(ByVal oDoc As DrawingDocument) As 
 End Function
 
 Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleBlockDefinition, ByVal promptValues As Variant)
-    Dim safePromptValues As Variant
-
     If oSheet Is Nothing Then Exit Sub
     If oDef Is Nothing Then Exit Sub
 
-    safePromptValues = NormalizePromptValues(promptValues)
-
     On Error GoTo AddTitleBlockFailed
     Call RemoveSheetTitleBlock(oSheet)
-    Call oSheet.AddTitleBlock(oDef, , safePromptValues)
+    Call oSheet.AddTitleBlock(oDef)
     Exit Sub
 
 AddTitleBlockFailed:
@@ -156,25 +152,25 @@ Private Sub AddStaticLabels(ByVal oSketch As DrawingSketch)
 End Sub
 
 Private Sub AddPromptedFields(ByVal oSketch As DrawingSketch)
-    ' Prompt order must match docs/prompt-fields.md and DefaultPromptValues().
-    Call oSketch.TextBoxes.AddFitted(Pt(8.6, 5.0), "<Prompt>Заказчик</Prompt>")                 ' 1 Customer
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 4.0), "<Prompt>Обозначение</Prompt>")             ' 2 Designation
+    ' Prompt dependency intentionally disabled as a stabilization step.
+    Call oSketch.TextBoxes.AddFitted(Pt(8.6, 5.0), "ООО Заказчик")
+    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 4.0), "RKM-000")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 3.1), "<Prompt>Описание объекта 1</Prompt>")      ' 3 ObjectDescription1
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 2.7), "<Prompt>Описание объекта 2</Prompt>")      ' 4 ObjectDescription2
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 2.3), "<Prompt>Описание объекта 3</Prompt>")      ' 5 ObjectDescription3
+    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 3.1), "Наименование объекта, строка 1")
+    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 2.7), "Наименование объекта, строка 2")
+    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 2.3), "Наименование объекта, строка 3")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 1.55), "<Prompt>Заголовок раздела 1</Prompt>")    ' 6 SectionTitle1
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 1.25), "<Prompt>Заголовок раздела 2</Prompt>")    ' 7 SectionTitle2
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 0.95), "<Prompt>Заголовок раздела 3</Prompt>")    ' 8 SectionTitle3
+    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 1.55), "Раздел, строка 1")
+    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 1.25), "Раздел, строка 2")
+    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 0.95), "Раздел, строка 3")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(14.2, 2.55), "<Prompt>Стадия</Prompt>")                 ' 9 Stage
-    Call oSketch.TextBoxes.AddFitted(Pt(15.6, 2.55), "<Prompt>Лист</Prompt>")                   ' 10 SheetNumber
-    Call oSketch.TextBoxes.AddFitted(Pt(17.05, 2.55), "<Prompt>Листов</Prompt>")                ' 11 TotalSheets
+    Call oSketch.TextBoxes.AddFitted(Pt(14.2, 2.55), "П")
+    Call oSketch.TextBoxes.AddFitted(Pt(15.6, 2.55), "1")
+    Call oSketch.TextBoxes.AddFitted(Pt(17.05, 2.55), "1")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 0.45), "<Prompt>Наименование листа</Prompt>")     ' 12 SheetName
-    Call oSketch.TextBoxes.AddFitted(Pt(11.8, 0.45), "<Prompt>Организация</Prompt>")            ' 13 Organization
+    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 0.45), "Общий вид")
+    Call oSketch.TextBoxes.AddFitted(Pt(11.8, 0.45), "Проектная организация")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(2.7, 0.4), "<Prompt>Разработал ФИО</Prompt>")          ' 14 DeveloperName
-    Call oSketch.TextBoxes.AddFitted(Pt(5.35, 0.4), "<Prompt>Дата разработал</Prompt>")        ' 15 DeveloperDate
+    Call oSketch.TextBoxes.AddFitted(Pt(2.7, 0.4), "И.И. Иванов")
+    Call oSketch.TextBoxes.AddFitted(Pt(5.35, 0.4), "01.01.2026")
 End Sub
