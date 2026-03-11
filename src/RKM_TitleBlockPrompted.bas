@@ -81,6 +81,7 @@ Private Function BuildPromptStringsIfNeeded(ByVal oDef As TitleBlockDefinition) 
     Dim promptCount As Long
     Dim promptName As String
     Dim i As Long
+    Dim defaults As Object
 
     If oDef Is Nothing Then Exit Function
 
@@ -100,22 +101,40 @@ Private Function BuildPromptStringsIfNeeded(ByVal oDef As TitleBlockDefinition) 
 
     If promptCount = 0 Then Exit Function
 
+    Set defaults = BuildDefaultPromptValues()
+
     ReDim promptValues(1 To promptCount)
     For i = 1 To promptCount
-        promptValues(i) = GetPromptDefaultValue(promptNames(i))
+        promptValues(i) = GetPromptDefaultValue(promptNames(i), defaults)
     Next i
 
     Debug.Print "Prompted fields detected: " & CStr(promptCount)
     BuildPromptStringsIfNeeded = promptValues
 End Function
 
-Private Function GetPromptDefaultValue(ByVal promptName As String) As String
-    Select Case UCase$(promptName)
-        Case PROMPT_DOC_NAME, PROMPT_OBJ_NAME, PROMPT_STAGE, PROMPT_SHEET, PROMPT_SHEETS
-            GetPromptDefaultValue = ""
-        Case Else
-            GetPromptDefaultValue = ""
-    End Select
+Private Function BuildDefaultPromptValues() As Object
+    Dim values As Object
+
+    Set values = CreateObject("Scripting.Dictionary")
+    values.CompareMode = 1 ' vbTextCompare
+
+    values(PROMPT_DOC_NAME) = ""
+    values(PROMPT_OBJ_NAME) = ""
+    values(PROMPT_STAGE) = ""
+    values(PROMPT_SHEET) = ""
+    values(PROMPT_SHEETS) = ""
+
+    Set BuildDefaultPromptValues = values
+End Function
+
+Private Function GetPromptDefaultValue(ByVal promptName As String, ByVal defaults As Object) As String
+    If defaults Is Nothing Then Exit Function
+
+    If defaults.Exists(promptName) Then
+        GetPromptDefaultValue = CStr(defaults(promptName))
+    Else
+        GetPromptDefaultValue = ""
+    End If
 End Function
 
 Private Sub DrawTitleBlockGeometry(ByVal oDoc As DrawingDocument, ByVal oSketch As DrawingSketch)

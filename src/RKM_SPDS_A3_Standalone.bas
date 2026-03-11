@@ -42,13 +42,13 @@ Public Sub Rkm_CreateOrApplyA3Frame_SPDS()
     Set oBorderDef = EnsureSpdsA3BorderDefinition(oDoc)
     If oBorderDef Is Nothing Then Exit Sub
 
-    Set oTitleDef = EnsureSpdsForm3TitleBlockDefinition(oDoc)
+    Set oTitleDef = EnsureRkmTitleBlockDefinition(oDoc)
     If oTitleDef Is Nothing Then Exit Sub
 
     If Not CanEditDrawingResources(ThisApplication) Then Exit Sub
 
     ApplySpdsBorderToSheet oSheet, oBorderDef
-    ApplySpdsTitleBlockToSheet oSheet, oTitleDef
+    ApplyRkmTitleBlockToSheet oSheet, oTitleDef
 
     Debug.Print "Applied BorderDefinition: " & oBorderDef.Name
     Debug.Print "Applied TitleBlockDefinition: " & oTitleDef.Name
@@ -140,39 +140,6 @@ EH:
     MsgBox "Error: " & Err.Number & " - " & Err.Description, vbCritical
 End Function
 
-Private Function EnsureSpdsForm3TitleBlockDefinition(ByVal oDoc As DrawingDocument) As TitleBlockDefinition
-    Dim oDef As TitleBlockDefinition
-    Dim oSketch As DrawingSketch
-    Dim isEditing As Boolean
-
-    On Error GoTo EH
-
-    Set oDef = FindTitleBlockDefinition(oDoc, RKM_TITLEBLOCK_NAME)
-    If oDef Is Nothing Then
-        Set oDef = oDoc.TitleBlockDefinitions.Add(RKM_TITLEBLOCK_NAME)
-    End If
-
-    oDef.Edit oSketch
-    isEditing = True
-
-    ClearSketch oSketch
-    DrawForm3Geometry oSketch
-    AddForm3StaticText oSketch
-
-    oDef.ExitEdit True
-    isEditing = False
-
-    Set EnsureSpdsForm3TitleBlockDefinition = oDef
-    Exit Function
-EH:
-    If isEditing Then
-        On Error Resume Next
-        oDef.ExitEdit False
-        On Error GoTo 0
-    End If
-    MsgBox "Error: " & Err.Number & " - " & Err.Description, vbCritical
-End Function
-
 Private Sub ApplySpdsBorderToSheet(ByVal oSheet As Sheet, ByVal oDef As BorderDefinition)
     If oSheet Is Nothing Then Exit Sub
     If oDef Is Nothing Then Exit Sub
@@ -182,25 +149,6 @@ Private Sub ApplySpdsBorderToSheet(ByVal oSheet As Sheet, ByVal oDef As BorderDe
     On Error GoTo 0
 
     oSheet.AddBorder oDef
-End Sub
-
-Private Sub ApplySpdsTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleBlockDefinition)
-    Dim prompts As Variant
-
-    If oSheet Is Nothing Then Exit Sub
-    If oDef Is Nothing Then Exit Sub
-
-    On Error Resume Next
-    If Not oSheet.TitleBlock Is Nothing Then oSheet.TitleBlock.Delete
-    On Error GoTo 0
-
-    prompts = BuildPromptStringsIfNeeded(oDef)
-
-    If IsEmpty(prompts) Then
-        oSheet.AddTitleBlock oDef
-    Else
-        oSheet.AddTitleBlock oDef, , prompts
-    End If
 End Sub
 
 Private Sub DrawSpdsBorderGeometry(ByVal oSketch As DrawingSketch)
@@ -242,91 +190,6 @@ Private Sub DrawSpdsBorderGeometry(ByVal oSketch As DrawingSketch)
     oSketch.SketchLines.AddByTwoPoints P2d(tbX1, tbY2), P2d(ix2, tbY2)
 End Sub
 
-Private Sub DrawForm3Geometry(ByVal oSketch As DrawingSketch)
-    Dim x1 As Double
-    Dim y1 As Double
-    Dim x2 As Double
-    Dim y2 As Double
-    Dim c1 As Double
-    Dim c2 As Double
-    Dim c3 As Double
-    Dim r1 As Double
-    Dim r2 As Double
-    Dim r3 As Double
-
-    x2 = Mm(A3_W_MM - FRAME_OTHER_MM)
-    y1 = Mm(FRAME_OTHER_MM)
-    x1 = x2 - Mm(TB_W_MM)
-    y2 = y1 + Mm(TB_H_MM)
-
-    c1 = x1 + Mm(TB_C1_MM)
-    c2 = x1 + Mm(TB_C2_MM)
-    c3 = x1 + Mm(TB_C3_MM)
-
-    r1 = y1 + Mm(TB_R1_MM)
-    r2 = y1 + Mm(TB_R2_MM)
-    r3 = y1 + Mm(TB_R3_MM)
-
-    Debug.Print "Title block box (cm): (" & Fmt(x1) & "," & Fmt(y1) & ") - (" & Fmt(x2) & "," & Fmt(y2) & ")"
-    Debug.Print "Title block size (mm): " & Fmt(CmToMm(Nothing, x2 - x1)) & " x " & Fmt(CmToMm(Nothing, y2 - y1))
-
-    oSketch.SketchLines.AddAsTwoPointRectangle P2d(x1, y1), P2d(x2, y2)
-    oSketch.SketchLines.AddByTwoPoints P2d(c1, y1), P2d(c1, y2)
-    oSketch.SketchLines.AddByTwoPoints P2d(c2, y1), P2d(c2, y2)
-    oSketch.SketchLines.AddByTwoPoints P2d(c3, y1), P2d(c3, y2)
-
-    oSketch.SketchLines.AddByTwoPoints P2d(x1, r1), P2d(x2, r1)
-    oSketch.SketchLines.AddByTwoPoints P2d(x1, r2), P2d(x2, r2)
-    oSketch.SketchLines.AddByTwoPoints P2d(x1, r3), P2d(x2, r3)
-End Sub
-
-Private Sub AddForm3StaticText(ByVal oSketch As DrawingSketch)
-    Dim x1 As Double
-    Dim y1 As Double
-    Dim x2 As Double
-
-    x2 = Mm(A3_W_MM - FRAME_OTHER_MM)
-    y1 = Mm(FRAME_OTHER_MM)
-    x1 = x2 - Mm(TB_W_MM)
-
-    oSketch.TextBoxes.AddFitted P2d(x1 + Mm(2#), y1 + Mm(47#)), "Project"
-    oSketch.TextBoxes.AddFitted P2d(x1 + Mm(2#), y1 + Mm(32#)), "Drawing"
-    oSketch.TextBoxes.AddFitted P2d(x1 + Mm(112#), y1 + Mm(47#)), "Stage"
-    oSketch.TextBoxes.AddFitted P2d(x1 + Mm(152#), y1 + Mm(47#)), "Sheet"
-    oSketch.TextBoxes.AddFitted P2d(x1 + Mm(172#), y1 + Mm(47#)), "Sheets"
-    oSketch.TextBoxes.AddFitted P2d(x1 + Mm(112#), y1 + Mm(2#)), "A3"
-End Sub
-
-Private Function BuildPromptStringsIfNeeded(ByVal oTitleDef As TitleBlockDefinition) As Variant
-    Dim oSketch As DrawingSketch
-    Dim oTextBox As TextBox
-    Dim promptCount As Long
-    Dim i As Long
-    Dim promptValues() As String
-
-    If oTitleDef Is Nothing Then Exit Function
-
-    On Error Resume Next
-    Set oSketch = oTitleDef.Sketch
-    On Error GoTo 0
-    If oSketch Is Nothing Then Exit Function
-
-    For Each oTextBox In oSketch.TextBoxes
-        If InStr(1, oTextBox.Text, "<Prompt>", vbTextCompare) > 0 Then
-            promptCount = promptCount + 1
-        End If
-    Next oTextBox
-
-    If promptCount = 0 Then Exit Function
-
-    ReDim promptValues(1 To promptCount)
-    For i = 1 To promptCount
-        promptValues(i) = ""
-    Next i
-
-    BuildPromptStringsIfNeeded = promptValues
-End Function
-
 Public Sub Rkm_SelfTest_SPDS_A3()
     Dim oDoc As DrawingDocument
     Dim oSheet As Sheet
@@ -367,12 +230,6 @@ End Function
 Private Function FindBorderDefinition(ByVal oDoc As DrawingDocument, ByVal defName As String) As BorderDefinition
     On Error Resume Next
     Set FindBorderDefinition = oDoc.BorderDefinitions.Item(defName)
-    On Error GoTo 0
-End Function
-
-Private Function FindTitleBlockDefinition(ByVal oDoc As DrawingDocument, ByVal defName As String) As TitleBlockDefinition
-    On Error Resume Next
-    Set FindTitleBlockDefinition = oDoc.TitleBlockDefinitions.Item(defName)
     On Error GoTo 0
 End Function
 
