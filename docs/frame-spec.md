@@ -24,5 +24,5 @@
 ### TitleBlockDefinition (`RKM_SPDS_A3_FORM3_TITLEBLOCK`)
 - Прямоугольник основной надписи `185 x 55 мм`.
 - Внутренняя сетка базовой структуры формы 3.
-- Статические подписи (без обязательных prompted-полей в baseline версии).
-- Код применения готов к future-proof режиму: если в definition появятся `<Prompt>...</Prompt>`, вставка выполняется с `PromptStrings`.
+- Статические подписи + prompted-поля `<Prompt>...</Prompt>` для входных значений.
+- Вставка future-proof: `Sheet.AddTitleBlock` получает `PromptStrings` только если prompts реально присутствуют в определении.
