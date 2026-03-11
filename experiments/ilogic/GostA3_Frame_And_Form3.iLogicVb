@@ -1,0 +1,148 @@
+' External iLogic rule
+' Draws A3 frame + compact Form 3 stamp directly in ActiveSheet sketch.
+' No TitleBlockDefinition / BorderDefinition / prompt fields.
+
+Option Explicit On
+
+Sub Main()
+    ' Sheet geometry (Inventor drawing sheet units are cm)
+    Const SHEET_WIDTH_A3_CM As Double = 42.0
+    Const SHEET_HEIGHT_A3_CM As Double = 29.7
+
+    Const LEFT_MARGIN_CM As Double = 2.0
+    Const RIGHT_MARGIN_CM As Double = 0.5
+    Const TOP_MARGIN_CM As Double = 0.5
+    Const BOTTOM_MARGIN_CM As Double = 0.5
+
+    Const STAMP_WIDTH_CM As Double = 18.5
+    Const STAMP_HEIGHT_CM As Double = 5.5
+
+    Const SKETCH_NAME As String = "RKM_ILOGIC_A3_FORM3"
+
+    Dim app As Inventor.Application = ThisApplication
+
+    If app.ActiveDocument Is Nothing OrElse _
+       app.ActiveDocument.DocumentType <> Inventor.DocumentTypeEnum.kDrawingDocumentObject Then
+        MessageBox.Show("Откройте чертеж (.idw/.dwg) и запустите правило снова.", "iLogic")
+        Exit Sub
+    End If
+
+    Dim drw As Inventor.DrawingDocument = CType(app.ActiveDocument, Inventor.DrawingDocument)
+    Dim sheet As Inventor.Sheet = drw.ActiveSheet
+    Dim tg As Inventor.TransientGeometry = app.TransientGeometry
+
+    Dim sk As Inventor.DrawingSketch = GetOrCreateSketch(sheet, SKETCH_NAME)
+
+    sk.Edit()
+    ClearSketch(sk)
+
+    ' Outer sheet contour
+    DrawRectangle(sk, tg, 0.0, 0.0, SHEET_WIDTH_A3_CM, SHEET_HEIGHT_A3_CM)
+
+    ' Inner frame contour
+    Dim innerLeft As Double = LEFT_MARGIN_CM
+    Dim innerBottom As Double = BOTTOM_MARGIN_CM
+    Dim innerRight As Double = SHEET_WIDTH_A3_CM - RIGHT_MARGIN_CM
+    Dim innerTop As Double = SHEET_HEIGHT_A3_CM - TOP_MARGIN_CM
+    DrawRectangle(sk, tg, innerLeft, innerBottom, innerRight, innerTop)
+
+    ' Compact Form 3 stamp (bottom-right, inside inner frame)
+    Dim stampRight As Double = innerRight
+    Dim stampBottom As Double = innerBottom
+    Dim stampLeft As Double = stampRight - STAMP_WIDTH_CM
+    Dim stampTop As Double = stampBottom + STAMP_HEIGHT_CM
+    DrawRectangle(sk, tg, stampLeft, stampBottom, stampRight, stampTop)
+
+    ' Stamp split lines
+    Dim xA As Double = stampLeft + 8.8
+    Dim xB As Double = xA + 2.2
+    Dim xC As Double = xB + 2.2
+    Dim xD As Double = xC + 2.2
+
+    Dim yA As Double = stampBottom + 1.2
+    Dim yB As Double = stampBottom + 2.8
+    Dim yC As Double = stampBottom + 4.2
+
+    AddLine(sk, tg, xA, stampBottom, xA, stampTop)
+    AddLine(sk, tg, xB, stampBottom, xB, stampTop)
+    AddLine(sk, tg, xC, stampBottom, xC, stampTop)
+    AddLine(sk, tg, xD, stampBottom, xD, stampTop)
+
+    AddLine(sk, tg, stampLeft, yA, stampRight, yA)
+    AddLine(sk, tg, stampLeft, yB, xA, yB)
+    AddLine(sk, tg, stampLeft, yC, xA, yC)
+
+    ' Static ASCII placeholder texts
+    AddText(sk, tg, stampLeft + 0.25, stampTop - 0.55, "RKM-000", 0.30)
+    AddText(sk, tg, stampLeft + 0.25, yC - 0.45, "OBJ 1", 0.25)
+    AddText(sk, tg, stampLeft + 0.25, yB - 0.45, "OBJ 2", 0.25)
+    AddText(sk, tg, stampLeft + 0.25, yA + 0.20, "OBJ 3", 0.25)
+
+    AddText(sk, tg, xA + 0.15, stampTop - 0.55, "SEC 1", 0.23)
+    AddText(sk, tg, xB + 0.15, stampTop - 0.55, "SEC 2", 0.23)
+    AddText(sk, tg, xC + 0.15, stampTop - 0.55, "SEC 3", 0.23)
+
+    AddText(sk, tg, xD + 0.15, stampTop - 0.55, "P", 0.23)
+    AddText(sk, tg, xD + 0.15, yA + 0.20, "1", 0.23)
+    AddText(sk, tg, xD + 0.15, stampBottom + 0.20, "A3", 0.23)
+
+    AddText(sk, tg, xA + 0.15, stampBottom + 0.20, "ORG", 0.23)
+    AddText(sk, tg, xB + 0.15, stampBottom + 0.20, "IVANOV", 0.23)
+    AddText(sk, tg, xC + 0.15, stampBottom + 0.20, "01.01.2026", 0.23)
+
+    sk.ExitEdit()
+
+    MessageBox.Show("Готово: рамка и штамп построены на активном листе " & sheet.Name, "iLogic")
+End Sub
+
+Private Function GetOrCreateSketch(ByVal sheet As Inventor.Sheet, ByVal sketchName As String) As Inventor.DrawingSketch
+    Dim sk As Inventor.DrawingSketch = Nothing
+
+    For Each item As Inventor.DrawingSketch In sheet.Sketches
+        If String.Equals(item.Name, sketchName, StringComparison.OrdinalIgnoreCase) Then
+            sk = item
+            Exit For
+        End If
+    Next
+
+    If sk Is Nothing Then
+        sk = sheet.Sketches.Add()
+        sk.Name = sketchName
+    End If
+
+    Return sk
+End Function
+
+Private Sub ClearSketch(ByVal sk As Inventor.DrawingSketch)
+    Dim textCount As Integer = sk.SketchTexts.Count
+    For i As Integer = textCount To 1 Step -1
+        sk.SketchTexts.Item(i).Delete()
+    Next
+
+    Dim lineCount As Integer = sk.SketchLines.Count
+    For i As Integer = lineCount To 1 Step -1
+        sk.SketchLines.Item(i).Delete()
+    Next
+End Sub
+
+Private Sub DrawRectangle(ByVal sk As Inventor.DrawingSketch, ByVal tg As Inventor.TransientGeometry, _
+                          ByVal x1 As Double, ByVal y1 As Double, ByVal x2 As Double, ByVal y2 As Double)
+    AddLine(sk, tg, x1, y1, x2, y1)
+    AddLine(sk, tg, x2, y1, x2, y2)
+    AddLine(sk, tg, x2, y2, x1, y2)
+    AddLine(sk, tg, x1, y2, x1, y1)
+End Sub
+
+Private Sub AddLine(ByVal sk As Inventor.DrawingSketch, ByVal tg As Inventor.TransientGeometry, _
+                    ByVal x1 As Double, ByVal y1 As Double, ByVal x2 As Double, ByVal y2 As Double)
+    Dim p1 As Inventor.Point2d = tg.CreatePoint2d(x1, y1)
+    Dim p2 As Inventor.Point2d = tg.CreatePoint2d(x2, y2)
+    sk.SketchLines.AddByTwoPoints(p1, p2)
+End Sub
+
+Private Sub AddText(ByVal sk As Inventor.DrawingSketch, ByVal tg As Inventor.TransientGeometry, _
+                    ByVal x As Double, ByVal y As Double, ByVal textValue As String, ByVal textHeightCm As Double)
+    Dim p As Inventor.Point2d = tg.CreatePoint2d(x, y)
+    Dim st As Inventor.SketchText = sk.SketchTexts.AddFitted(p, textValue)
+    st.Height = textHeightCm
+End Sub
