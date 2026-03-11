@@ -1,63 +1,44 @@
 Attribute VB_Name = "RKM_EntryPoints"
 Option Explicit
 
-Public Sub RKM_CreateNewDrawingAndApplyFrameAndTitleBlock()
+Public Sub Rkm_CreateOrApplyA3Frame()
     Dim oDoc As DrawingDocument
     Dim oSheet As Sheet
+    Dim oBorderDef As BorderDefinition
+    Dim oTitleDef As TitleBlockDefinition
 
-    If Not CanEditDrawingResources(ThisApplication) Then Exit Sub
-
-    Set oDoc = CreateNewA3LandscapeDrawing(ThisApplication)
-    If oDoc Is Nothing Then
-        MsgBox "Could not create a new drawing document.", vbCritical
-        Exit Sub
-    End If
-
-    Set oSheet = GetActiveSheet(oDoc)
-    Call ApplyRkmResourcesToSheet(oDoc, oSheet)
-End Sub
-
-Public Sub RKM_ApplyFrameAndTitleBlockToActiveSheet()
-    Dim oDoc As DrawingDocument
-    Dim oSheet As Sheet
+    On Error GoTo FailHandler
 
     If Not CanEditDrawingResources(ThisApplication) Then Exit Sub
 
     Set oDoc = GetActiveDrawingDocument(ThisApplication)
     If oDoc Is Nothing Then Exit Sub
 
-    Set oSheet = GetActiveSheet(oDoc)
-    Call ApplyRkmResourcesToSheet(oDoc, oSheet)
-End Sub
-
-Public Sub RKM_RebuildDefinitionsInActiveDrawing()
-    Dim oDoc As DrawingDocument
-    Dim oBorderDef As BorderDefinition
-
-    If Not CanEditDrawingResources(ThisApplication) Then Exit Sub
-
-    Set oDoc = GetActiveDrawingDocument(ThisApplication)
-    If oDoc Is Nothing Then Exit Sub
-
-    Set oBorderDef = EnsureRkmBorderDefinition(oDoc)
-
-    If oBorderDef Is Nothing Then
-        MsgBox "Could not rebuild border definition.", vbExclamation
-        Exit Sub
-    End If
-
-    MsgBox "Border definition is rebuilt or versioned in the active drawing.", vbInformation
-End Sub
-
-Private Sub ApplyRkmResourcesToSheet(ByVal oDoc As DrawingDocument, ByVal oSheet As Sheet)
-    Dim oBorderDef As BorderDefinition
-
-    If oDoc Is Nothing Then Exit Sub
+    Set oSheet = EnsureA3LandscapeSheet(oDoc)
     If oSheet Is Nothing Then Exit Sub
 
     Set oBorderDef = EnsureRkmBorderDefinition(oDoc)
+    If oBorderDef Is Nothing Then
+        MsgBox "Could not create/update border definition.", vbCritical
+        Exit Sub
+    End If
 
-    Call ApplyRkmBorderToSheet(oSheet, oBorderDef)
+    Set oTitleDef = EnsureRkmTitleBlockDefinition(oDoc)
+    If oTitleDef Is Nothing Then
+        MsgBox "Could not create/update title block definition.", vbCritical
+        Exit Sub
+    End If
 
-    MsgBox "RKM A3 border was applied.", vbInformation
+    If Not CanEditDrawingResources(ThisApplication) Then Exit Sub
+
+    ApplyRkmBorderToSheet oSheet, oBorderDef
+    ApplyRkmTitleBlockToSheet oSheet, oTitleDef
+
+    MsgBox "A3 GOST frame and title block applied.", vbInformation
+    Exit Sub
+
+FailHandler:
+    MsgBox "Rkm_CreateOrApplyA3Frame failed." & vbCrLf & _
+           "Err.Number: " & CStr(Err.Number) & vbCrLf & _
+           "Err.Description: " & Err.Description, vbCritical
 End Sub
