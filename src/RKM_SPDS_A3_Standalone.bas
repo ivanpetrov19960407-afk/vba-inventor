@@ -30,15 +30,12 @@ Public Sub Rkm_CreateOrApplyA3Frame_SPDS()
     Set oDoc = EnsureDrawingDocument()
     If oDoc Is Nothing Then Exit Sub
 
-    Debug.Print "Document: " & oDoc.DisplayName
-
-    If Not EnsureNoActiveEdit() Then Exit Sub
+    If Not CanEditDrawingResources(ThisApplication) Then Exit Sub
 
     Set oSheet = EnsureA3LandscapeSheet(oDoc)
     If oSheet Is Nothing Then Exit Sub
 
-    Debug.Print "Sheet.Width (cm): " & Fmt(oSheet.Width)
-    Debug.Print "Sheet.Height (cm): " & Fmt(oSheet.Height)
+    PrintSheetDiagnostics oDoc, oSheet
     Debug.Print "Sheet.Width (mm): " & Fmt(oDoc.UnitsOfMeasure.ConvertUnits(oSheet.Width, kCentimeterLengthUnits, kMillimeterLengthUnits))
     Debug.Print "Sheet.Height (mm): " & Fmt(oDoc.UnitsOfMeasure.ConvertUnits(oSheet.Height, kCentimeterLengthUnits, kMillimeterLengthUnits))
 
@@ -48,7 +45,7 @@ Public Sub Rkm_CreateOrApplyA3Frame_SPDS()
     Set oTitleDef = EnsureSpdsForm3TitleBlockDefinition(oDoc)
     If oTitleDef Is Nothing Then Exit Sub
 
-    If Not EnsureNoActiveEdit() Then Exit Sub
+    If Not CanEditDrawingResources(ThisApplication) Then Exit Sub
 
     ApplySpdsBorderToSheet oSheet, oBorderDef
     ApplySpdsTitleBlockToSheet oSheet, oTitleDef
@@ -74,26 +71,6 @@ Private Function EnsureDrawingDocument() As DrawingDocument
     End If
 
     Set EnsureDrawingDocument = ThisApplication.ActiveDocument
-End Function
-
-Private Function EnsureNoActiveEdit() As Boolean
-    Dim eo As Object
-
-    EnsureNoActiveEdit = False
-
-    On Error Resume Next
-    Set eo = ThisApplication.ActiveEditObject
-    On Error GoTo 0
-
-    If Not eo Is Nothing Then
-        If TypeOf eo Is DrawingSketch Or TypeOf eo Is Sketch Then
-            Debug.Print "ActiveEditObject=" & TypeName(eo)
-            MsgBox "Finish active sketch/resource edit before running macro.", vbExclamation
-            Exit Function
-        End If
-    End If
-
-    EnsureNoActiveEdit = True
 End Function
 
 Private Function EnsureA3LandscapeSheet(ByVal oDoc As DrawingDocument) As Sheet
@@ -344,7 +321,7 @@ Private Function BuildPromptStringsIfNeeded(ByVal oTitleDef As TitleBlockDefinit
 
     ReDim promptValues(1 To promptCount)
     For i = 1 To promptCount
-        promptValues(i) = "-"
+        promptValues(i) = ""
     Next i
 
     BuildPromptStringsIfNeeded = promptValues

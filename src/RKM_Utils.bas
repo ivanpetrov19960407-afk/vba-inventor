@@ -64,6 +64,16 @@ Public Function CanEditDrawingResources(ByVal oApp As Inventor.Application) As B
     CanEditDrawingResources = True
 End Function
 
+Public Sub PrintSheetDiagnostics(ByVal oDoc As DrawingDocument, ByVal oSheet As Sheet)
+    If oDoc Is Nothing Then Exit Sub
+    If oSheet Is Nothing Then Exit Sub
+
+    Debug.Print "Document: " & oDoc.DisplayName
+    Debug.Print "Active sheet: " & oSheet.Name
+    Debug.Print "Sheet.Width (cm): " & Format$(oSheet.Width, "0.000")
+    Debug.Print "Sheet.Height (cm): " & Format$(oSheet.Height, "0.000")
+End Sub
+
 Public Function GetActiveDrawingDocument(ByVal oApp As Inventor.Application) As DrawingDocument
     If oApp Is Nothing Then Exit Function
     If oApp.ActiveDocument Is Nothing Then
