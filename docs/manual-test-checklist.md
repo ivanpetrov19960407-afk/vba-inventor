@@ -1,4 +1,4 @@
-# Ручной чек-лист проверки (A3 рамка + штамп)
+# Ручной чек-лист проверки (A3 рамка + штамп СПДС форма 3)
 
 ## Предусловия
 - Открыт `DrawingDocument` в Autodesk Inventor.
@@ -6,11 +6,11 @@
 
 ## Базовый запуск
 1. Активируйте лист чертежа.
-2. Запустите макрос `Rkm_CreateOrApplyA3Frame`.
+2. Запустите макрос `Rkm_CreateOrApplyA3Frame_SPDS` (или `Rkm_CreateOrApplyA3Frame` для совместимости).
 3. Убедитесь, что лист стал `A3 Landscape`.
 4. Убедитесь, что в Browser присутствуют ресурсы:
-   - `RKM_A3_BORDER`
-   - `RKM_A3_TITLEBLOCK`
+   - `RKM_SPDS_A3_BORDER`
+   - `RKM_SPDS_A3_FORM3_TITLEBLOCK`
 
 ## Проверка геометрии
 1. Внутренняя рамка:
@@ -21,6 +21,11 @@
    - размер `185 x 55 мм`.
 
 ## Идемпотентность
-1. Запустите `Rkm_CreateOrApplyA3Frame` повторно.
+1. Запустите `Rkm_CreateOrApplyA3Frame_SPDS` повторно.
 2. Проверьте, что на листе по-прежнему только одна рамка и один штамп.
 3. Проверьте, что геометрия не сместилась.
+
+## Проверка safe stop
+1. Войдите в режим редактирования sketch/resource.
+2. Запустите макрос.
+3. Проверьте, что выведено сообщение `Finish active sketch/resource edit before running macro.` и документ не изменён.
