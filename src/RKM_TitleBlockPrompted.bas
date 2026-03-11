@@ -27,7 +27,7 @@ Public Function EnsureRkmTitleBlockDefinition(ByVal oDoc As DrawingDocument) As 
     ClearSketch oSketch
     DrawTitleBlockGeometry oDoc, oSketch
     AddTitleBlockLabels oDoc, oSketch
-    AddPromptedFields oDoc, oSketch
+    AddValuePlaceholders oDoc, oSketch
 
     oDef.ExitEdit True
     isEditing = False
@@ -48,21 +48,13 @@ EH:
 End Function
 
 Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleBlockDefinition)
-    Dim prompts As Variant
-
     On Error GoTo AddTitleBlockFailed
 
     If oSheet Is Nothing Then Exit Sub
     If oDef Is Nothing Then Exit Sub
 
-    prompts = BuildPromptStringsIfNeeded(oDef)
-
     RemoveSheetTitleBlock oSheet
-    If IsEmpty(prompts) Then
-        oSheet.AddTitleBlock oDef
-    Else
-        oSheet.AddTitleBlock oDef, , , prompts
-    End If
+    oSheet.AddTitleBlock oDef
 
     Debug.Print "Applied title block: " & oDef.Name
     Exit Sub
@@ -72,70 +64,6 @@ AddTitleBlockFailed:
            "Err.Number: " & CStr(Err.Number) & vbCrLf & _
            "Err.Description: " & Err.Description, vbExclamation
 End Sub
-
-Private Function BuildPromptStringsIfNeeded(ByVal oDef As TitleBlockDefinition) As Variant
-    Dim oSketch As DrawingSketch
-    Dim oTextBox As TextBox
-    Dim promptNames() As String
-    Dim promptValues() As String
-    Dim promptCount As Long
-    Dim promptName As String
-    Dim i As Long
-    Dim defaults As Object
-
-    If oDef Is Nothing Then Exit Function
-
-    On Error Resume Next
-    Set oSketch = oDef.Sketch
-    On Error GoTo 0
-    If oSketch Is Nothing Then Exit Function
-
-    For Each oTextBox In oSketch.TextBoxes
-        promptName = ExtractPromptName(oTextBox.Text)
-        If Len(promptName) > 0 Then
-            promptCount = promptCount + 1
-            ReDim Preserve promptNames(1 To promptCount)
-            promptNames(promptCount) = promptName
-        End If
-    Next oTextBox
-
-    If promptCount = 0 Then Exit Function
-
-    Set defaults = BuildDefaultPromptValues()
-
-    ReDim promptValues(1 To promptCount)
-    For i = 1 To promptCount
-        promptValues(i) = GetPromptDefaultValue(promptNames(i), defaults)
-    Next i
-
-    Debug.Print "Prompted fields detected: " & CStr(promptCount)
-    BuildPromptStringsIfNeeded = promptValues
-End Function
-
-Private Function BuildDefaultPromptValues() As Object
-    Dim values As Object
-
-    Set values = CreateObject("Scripting.Dictionary")
-    values.CompareMode = 1 ' vbTextCompare
-
-    values(PROMPT_DOC_NAME) = ""
-    values(PROMPT_OBJ_NAME) = ""
-    values(PROMPT_STAGE) = ""
-    values(PROMPT_SHEET) = ""
-    values(PROMPT_SHEETS) = ""
-
-    Set BuildDefaultPromptValues = values
-End Function
-
-Private Function GetPromptDefaultValue(ByVal promptName As String, ByVal defaults As Object) As String
-    If defaults Is Nothing Then Exit Function
-
-    If defaults.Exists(promptName) Then
-        GetPromptDefaultValue = CStr(defaults(promptName))
-    Else
-        GetPromptDefaultValue = ""
-    End If
-End Function
 
 Private Sub DrawTitleBlockGeometry(ByVal oDoc As DrawingDocument, ByVal oSketch As DrawingSketch)
     Dim x1 As Double
@@ -176,7 +104,7 @@ Private Sub AddTitleBlockLabels(ByVal oDoc As DrawingDocument, ByVal oSketch As 
     oSketch.TextBoxes.AddFitted Pt(x1 + MmToCm(oDoc, 112#), y1 + MmToCm(oDoc, 2#)), "A3"
 End Sub
 
-Private Sub AddPromptedFields(ByVal oDoc As DrawingDocument, ByVal oSketch As DrawingSketch)
+Private Sub AddValuePlaceholders(ByVal oDoc As DrawingDocument, ByVal oSketch As DrawingSketch)
     Dim x2 As Double
     Dim y1 As Double
     Dim x1 As Double
@@ -185,30 +113,18 @@ Private Sub AddPromptedFields(ByVal oDoc As DrawingDocument, ByVal oSketch As Dr
     y1 = MmToCm(oDoc, FRAME_OTHER_MM)
     x1 = x2 - MmToCm(oDoc, TITLE_W_MM)
 
-    oSketch.TextBoxes.AddByRectangle Pt(x1 + MmToCm(oDoc, 2#), y1 + MmToCm(oDoc, 31#)), Pt(x1 + MmToCm(oDoc, 108#), y1 + MmToCm(oDoc, 44#)), PromptToken(PROMPT_DOC_NAME)
-    oSketch.TextBoxes.AddByRectangle Pt(x1 + MmToCm(oDoc, 2#), y1 + MmToCm(oDoc, 16#)), Pt(x1 + MmToCm(oDoc, 108#), y1 + MmToCm(oDoc, 29#)), PromptToken(PROMPT_OBJ_NAME)
-    oSketch.TextBoxes.AddByRectangle Pt(x1 + MmToCm(oDoc, 112#), y1 + MmToCm(oDoc, 31#)), Pt(x1 + MmToCm(oDoc, 148#), y1 + MmToCm(oDoc, 44#)), PromptToken(PROMPT_STAGE)
-    oSketch.TextBoxes.AddByRectangle Pt(x1 + MmToCm(oDoc, 152#), y1 + MmToCm(oDoc, 31#)), Pt(x1 + MmToCm(oDoc, 168#), y1 + MmToCm(oDoc, 44#)), PromptToken(PROMPT_SHEET)
-    oSketch.TextBoxes.AddByRectangle Pt(x1 + MmToCm(oDoc, 172#), y1 + MmToCm(oDoc, 31#)), Pt(x1 + MmToCm(oDoc, 183#), y1 + MmToCm(oDoc, 44#)), PromptToken(PROMPT_SHEETS)
+    AddEmptyField oSketch, Pt(x1 + MmToCm(oDoc, 2#), y1 + MmToCm(oDoc, 31#)), Pt(x1 + MmToCm(oDoc, 108#), y1 + MmToCm(oDoc, 44#)), PROMPT_DOC_NAME
+    AddEmptyField oSketch, Pt(x1 + MmToCm(oDoc, 2#), y1 + MmToCm(oDoc, 16#)), Pt(x1 + MmToCm(oDoc, 108#), y1 + MmToCm(oDoc, 29#)), PROMPT_OBJ_NAME
+    AddEmptyField oSketch, Pt(x1 + MmToCm(oDoc, 112#), y1 + MmToCm(oDoc, 31#)), Pt(x1 + MmToCm(oDoc, 148#), y1 + MmToCm(oDoc, 44#)), PROMPT_STAGE
+    AddEmptyField oSketch, Pt(x1 + MmToCm(oDoc, 152#), y1 + MmToCm(oDoc, 31#)), Pt(x1 + MmToCm(oDoc, 168#), y1 + MmToCm(oDoc, 44#)), PROMPT_SHEET
+    AddEmptyField oSketch, Pt(x1 + MmToCm(oDoc, 172#), y1 + MmToCm(oDoc, 31#)), Pt(x1 + MmToCm(oDoc, 183#), y1 + MmToCm(oDoc, 44#)), PROMPT_SHEETS
 End Sub
 
-Private Function PromptToken(ByVal name As String) As String
-    PromptToken = "<Prompt>" & name & "</Prompt>"
-End Function
+Private Sub AddEmptyField(ByVal oSketch As DrawingSketch, ByVal p1 As Point2d, ByVal p2 As Point2d, ByVal fieldName As String)
+    Dim placeholderText As String
 
-Private Function ExtractPromptName(ByVal textValue As String) As String
-    Const OPEN_TAG As String = "<Prompt>"
-    Const CLOSE_TAG As String = "</Prompt>"
+    placeholderText = " "
+    If Len(fieldName) = 0 Then placeholderText = " "
 
-    Dim p1 As Long
-    Dim p2 As Long
-
-    p1 = InStr(1, textValue, OPEN_TAG, vbTextCompare)
-    If p1 = 0 Then Exit Function
-
-    p1 = p1 + Len(OPEN_TAG)
-    p2 = InStr(p1, textValue, CLOSE_TAG, vbTextCompare)
-    If p2 <= p1 Then Exit Function
-
-    ExtractPromptName = Mid$(textValue, p1, p2 - p1)
-End Function
+    oSketch.TextBoxes.AddByRectangle p1, p2, placeholderText
+End Sub
