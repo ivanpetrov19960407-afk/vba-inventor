@@ -43,13 +43,22 @@ Public Function Pt(ByVal x As Double, ByVal y As Double) As Point2d
 End Function
 
 Public Function CanEditDrawingResources(ByVal oApp As Inventor.Application) As Boolean
+    Dim eo As Object
+
     CanEditDrawingResources = False
 
     If oApp Is Nothing Then Exit Function
 
-    If Not oApp.ActiveEditObject Is Nothing Then
-        MsgBox "Finish active sketch/resource edit before running macro.", vbExclamation
-        Exit Function
+    On Error Resume Next
+    Set eo = oApp.ActiveEditObject
+    On Error GoTo 0
+
+    If Not eo Is Nothing Then
+        If TypeOf eo Is DrawingSketch Or TypeOf eo Is Sketch Then
+            Debug.Print "ActiveEditObject=" & TypeName(eo)
+            MsgBox "Finish active sketch/resource edit before running macro.", vbExclamation
+            Exit Function
+        End If
     End If
 
     CanEditDrawingResources = True

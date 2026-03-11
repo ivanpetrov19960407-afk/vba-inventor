@@ -1,9 +1,6 @@
 Attribute VB_Name = "RKM_SPDS_A3_Standalone"
 Option Explicit
 
-Private Const SPDS_BORDER_NAME As String = "SPDS_A3_BORDER"
-Private Const SPDS_TITLEBLOCK_NAME As String = "SPDS_FORM3_TITLEBLOCK"
-
 Private Const A3_W_MM As Double = 420#
 Private Const A3_H_MM As Double = 297#
 
@@ -42,6 +39,8 @@ Public Sub Rkm_CreateOrApplyA3Frame_SPDS()
 
     Debug.Print "Sheet.Width (cm): " & Fmt(oSheet.Width)
     Debug.Print "Sheet.Height (cm): " & Fmt(oSheet.Height)
+    Debug.Print "Sheet.Width (mm): " & Fmt(oDoc.UnitsOfMeasure.ConvertUnits(oSheet.Width, kCentimeterLengthUnits, kMillimeterLengthUnits))
+    Debug.Print "Sheet.Height (mm): " & Fmt(oDoc.UnitsOfMeasure.ConvertUnits(oSheet.Height, kCentimeterLengthUnits, kMillimeterLengthUnits))
 
     Set oBorderDef = EnsureSpdsA3BorderDefinition(oDoc)
     If oBorderDef Is Nothing Then Exit Sub
@@ -78,11 +77,20 @@ Private Function EnsureDrawingDocument() As DrawingDocument
 End Function
 
 Private Function EnsureNoActiveEdit() As Boolean
+    Dim eo As Object
+
     EnsureNoActiveEdit = False
 
-    If Not ThisApplication.ActiveEditObject Is Nothing Then
-        MsgBox "Finish active sketch/resource edit before running macro.", vbExclamation
-        Exit Function
+    On Error Resume Next
+    Set eo = ThisApplication.ActiveEditObject
+    On Error GoTo 0
+
+    If Not eo Is Nothing Then
+        If TypeOf eo Is DrawingSketch Or TypeOf eo Is Sketch Then
+            Debug.Print "ActiveEditObject=" & TypeName(eo)
+            MsgBox "Finish active sketch/resource edit before running macro.", vbExclamation
+            Exit Function
+        End If
     End If
 
     EnsureNoActiveEdit = True
@@ -130,9 +138,9 @@ Private Function EnsureSpdsA3BorderDefinition(ByVal oDoc As DrawingDocument) As 
 
     On Error GoTo EH
 
-    Set oDef = FindBorderDefinition(oDoc, SPDS_BORDER_NAME)
+    Set oDef = FindBorderDefinition(oDoc, RKM_BORDER_NAME)
     If oDef Is Nothing Then
-        Set oDef = oDoc.BorderDefinitions.Add(SPDS_BORDER_NAME)
+        Set oDef = oDoc.BorderDefinitions.Add(RKM_BORDER_NAME)
     End If
 
     oDef.Edit oSketch
@@ -162,9 +170,9 @@ Private Function EnsureSpdsForm3TitleBlockDefinition(ByVal oDoc As DrawingDocume
 
     On Error GoTo EH
 
-    Set oDef = FindTitleBlockDefinition(oDoc, SPDS_TITLEBLOCK_NAME)
+    Set oDef = FindTitleBlockDefinition(oDoc, RKM_TITLEBLOCK_NAME)
     If oDef Is Nothing Then
-        Set oDef = oDoc.TitleBlockDefinitions.Add(SPDS_TITLEBLOCK_NAME)
+        Set oDef = oDoc.TitleBlockDefinitions.Add(RKM_TITLEBLOCK_NAME)
     End If
 
     oDef.Edit oSketch
@@ -200,6 +208,8 @@ Private Sub ApplySpdsBorderToSheet(ByVal oSheet As Sheet, ByVal oDef As BorderDe
 End Sub
 
 Private Sub ApplySpdsTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleBlockDefinition)
+    Dim prompts As Variant
+
     If oSheet Is Nothing Then Exit Sub
     If oDef Is Nothing Then Exit Sub
 
@@ -207,7 +217,13 @@ Private Sub ApplySpdsTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As Titl
     If Not oSheet.TitleBlock Is Nothing Then oSheet.TitleBlock.Delete
     On Error GoTo 0
 
-    oSheet.AddTitleBlock oDef
+    prompts = BuildPromptStringsIfNeeded(oDef)
+
+    If IsEmpty(prompts) Then
+        oSheet.AddTitleBlock oDef
+    Else
+        oSheet.AddTitleBlock oDef, , prompts
+    End If
 End Sub
 
 Private Sub DrawSpdsBorderGeometry(ByVal oSketch As DrawingSketch)
@@ -302,6 +318,61 @@ Private Sub AddForm3StaticText(ByVal oSketch As DrawingSketch)
     oSketch.TextBoxes.AddFitted P2d(x1 + Mm(152#), y1 + Mm(47#)), "Sheet"
     oSketch.TextBoxes.AddFitted P2d(x1 + Mm(172#), y1 + Mm(47#)), "Sheets"
     oSketch.TextBoxes.AddFitted P2d(x1 + Mm(112#), y1 + Mm(2#)), "A3"
+End Sub
+
+Private Function BuildPromptStringsIfNeeded(ByVal oTitleDef As TitleBlockDefinition) As Variant
+    Dim oSketch As DrawingSketch
+    Dim oTextBox As TextBox
+    Dim promptCount As Long
+    Dim i As Long
+    Dim promptValues() As String
+
+    If oTitleDef Is Nothing Then Exit Function
+
+    On Error Resume Next
+    Set oSketch = oTitleDef.Sketch
+    On Error GoTo 0
+    If oSketch Is Nothing Then Exit Function
+
+    For Each oTextBox In oSketch.TextBoxes
+        If InStr(1, oTextBox.Text, "<Prompt>", vbTextCompare) > 0 Then
+            promptCount = promptCount + 1
+        End If
+    Next oTextBox
+
+    If promptCount = 0 Then Exit Function
+
+    ReDim promptValues(1 To promptCount)
+    For i = 1 To promptCount
+        promptValues(i) = "-"
+    Next i
+
+    BuildPromptStringsIfNeeded = promptValues
+End Function
+
+Public Sub Rkm_SelfTest_SPDS_A3()
+    Dim oDoc As DrawingDocument
+    Dim oSheet As Sheet
+    Dim widthMm As Double
+    Dim heightMm As Double
+
+    Set oDoc = EnsureDrawingDocument()
+    If oDoc Is Nothing Then Exit Sub
+
+    Set oSheet = EnsureA3LandscapeSheet(oDoc)
+    If oSheet Is Nothing Then Exit Sub
+
+    widthMm = oDoc.UnitsOfMeasure.ConvertUnits(oSheet.Width, kCentimeterLengthUnits, kMillimeterLengthUnits)
+    heightMm = oDoc.UnitsOfMeasure.ConvertUnits(oSheet.Height, kCentimeterLengthUnits, kMillimeterLengthUnits)
+
+    Debug.Print "SelfTest: doc=" & oDoc.DisplayName
+    Debug.Print "SelfTest: sheet(mm)=" & Fmt(widthMm) & " x " & Fmt(heightMm)
+
+    If Abs(widthMm - A3_W_MM) <= A3_TOL_MM And Abs(heightMm - A3_H_MM) <= A3_TOL_MM Then
+        Debug.Print "SelfTest: PASS"
+    Else
+        Debug.Print "SelfTest: FAIL"
+    End If
 End Sub
 
 Private Function Mm(ByVal valueMm As Double) As Double
