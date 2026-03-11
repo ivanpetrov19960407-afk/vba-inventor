@@ -26,12 +26,68 @@ Public Function EnsureRkmTitleBlockDefinition(ByVal oDoc As DrawingDocument) As 
 End Function
 
 Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleBlockDefinition, ByVal promptValues As Variant)
+    Dim safePromptValues As Variant
+
     If oSheet Is Nothing Then Exit Sub
     If oDef Is Nothing Then Exit Sub
 
+    safePromptValues = NormalizePromptValues(promptValues)
+
+    On Error GoTo AddTitleBlockFailed
     Call RemoveSheetTitleBlock(oSheet)
-    Call oSheet.AddTitleBlock(oDef, promptValues)
+    Call oSheet.AddTitleBlock(oDef, , safePromptValues)
+    Exit Sub
+
+AddTitleBlockFailed:
+    MsgBox "Не удалось вставить штамп: " & CStr(Err.Number) & " - " & Err.Description, vbExclamation
 End Sub
+
+Private Function NormalizePromptValues(ByVal promptValues As Variant) As Variant
+    Dim values(0 To 14) As String
+    Dim defaults As Variant
+    Dim i As Long
+
+    defaults = DefaultPromptValues()
+    For i = 0 To 14
+        values(i) = SafePromptString(defaults(i), "")
+    Next i
+
+    If IsArray(promptValues) Then
+        On Error GoTo InvalidPromptArray
+        If LBound(promptValues) = 0 And UBound(promptValues) = 14 Then
+            For i = 0 To 14
+                values(i) = SafePromptString(promptValues(i), values(i))
+            Next i
+        End If
+        On Error GoTo 0
+    End If
+
+    NormalizePromptValues = values
+    Exit Function
+
+InvalidPromptArray:
+    On Error GoTo 0
+    NormalizePromptValues = values
+End Function
+
+Private Function SafePromptString(ByVal value As Variant, ByVal fallbackValue As String) As String
+    If IsError(value) Then
+        SafePromptString = fallbackValue
+        Exit Function
+    End If
+
+    If IsNull(value) Or IsEmpty(value) Then
+        SafePromptString = fallbackValue
+        Exit Function
+    End If
+
+    On Error GoTo ConvertFailed
+    SafePromptString = CStr(value)
+    Exit Function
+
+ConvertFailed:
+    SafePromptString = fallbackValue
+End Function
 
 Private Sub DrawTitleBlockGrid(ByVal oSketch As DrawingSketch)
     ' Outer box.

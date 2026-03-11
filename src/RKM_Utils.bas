@@ -142,7 +142,7 @@ Public Sub RemoveSheetTitleBlock(ByVal oSheet As Sheet)
 End Sub
 
 Public Function DefaultPromptValues() As Variant
-    Dim values(0 To 14) As Variant
+    Dim values(0 To 14) As String
 
     values(0) = "ООО Заказчик"
     values(1) = "RKM-000"
