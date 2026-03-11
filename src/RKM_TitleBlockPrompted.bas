@@ -1,4 +1,4 @@
-﻿Attribute VB_Name = "RKM_TitleBlockPrompted"
+Attribute VB_Name = "RKM_TitleBlockPrompted"
 Option Explicit
 
 ' Title block total width (A3 bottom-right zone), cm.
