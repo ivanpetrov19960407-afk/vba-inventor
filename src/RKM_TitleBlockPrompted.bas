@@ -1,10 +1,17 @@
-Attribute VB_Name = "RKM_TitleBlockPrompted"
+﻿Attribute VB_Name = "RKM_TitleBlockPrompted"
 Option Explicit
 
-' Local title block coordinates, lower-left origin.
-Private Const TB_W As Double = 18.5
+' Title block total width (A3 bottom-right zone), cm.
+Private Const TB_W As Double = 17.8
+' Title block total height (A3 bottom-right zone), cm.
 Private Const TB_H As Double = 5.5
-Private Const LEFT_W As Double = 6.5
+Private Const LEFT_W As Double = 6#
+
+' Bottom-right anchoring logic for Inventor title blocks:
+' sketch origin is treated as the sheet bottom-right anchor, therefore
+' title block geometry must go left (negative X) and up (positive Y).
+Private Const TB_ORIGIN_X As Double = -TB_W
+Private Const TB_ORIGIN_Y As Double = 0#
 
 Public Function EnsureRkmTitleBlockDefinition(ByVal oDoc As DrawingDocument) As TitleBlockDefinition
     Dim defName As String
@@ -102,75 +109,79 @@ ConvertFailed:
     SafePromptString = fallbackValue
 End Function
 
+Private Function PtTB(ByVal xLocal As Double, ByVal yLocal As Double) As Point2d
+    Set PtTB = Pt(TB_ORIGIN_X + xLocal, TB_ORIGIN_Y + yLocal)
+End Function
+
 Private Sub DrawTitleBlockGrid(ByVal oSketch As DrawingSketch)
     ' Outer box.
-    Call oSketch.SketchLines.AddAsTwoPointRectangle(Pt(0#, 0#), Pt(TB_W, TB_H))
+    Call oSketch.SketchLines.AddAsTwoPointRectangle(PtTB(0#, 0#), PtTB(TB_W, TB_H))
 
     ' Left mini-table.
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(LEFT_W, 0#), Pt(LEFT_W, TB_H))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 4.7), Pt(LEFT_W, 4.7))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 4.0), Pt(LEFT_W, 4.0))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 3.3), Pt(LEFT_W, 3.3))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 2.4), Pt(LEFT_W, 2.4))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 1.2), Pt(LEFT_W, 1.2))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(LEFT_W, 0#), PtTB(LEFT_W, TB_H))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(0#, 4.7), PtTB(LEFT_W, 4.7))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(0#, 4.0), PtTB(LEFT_W, 4.0))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(0#, 3.3), PtTB(LEFT_W, 3.3))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(0#, 2.4), PtTB(LEFT_W, 2.4))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(0#, 1.2), PtTB(LEFT_W, 1.2))
 
     ' Revision sub-columns.
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(1.0, 3.3), Pt(1.0, 5.5))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(2.0, 3.3), Pt(2.0, 5.5))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(3.0, 3.3), Pt(3.0, 5.5))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(4.1, 3.3), Pt(4.1, 5.5))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(5.2, 3.3), Pt(5.2, 5.5))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(1.0, 3.3), PtTB(1.0, 5.5))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(2.0, 3.3), PtTB(2.0, 5.5))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(3.0, 3.3), PtTB(3.0, 5.5))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(4.0, 3.3), PtTB(4.0, 5.5))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(5.0, 3.3), PtTB(5.0, 5.5))
 
     ' Right content block row guides.
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(LEFT_W, 4.7), Pt(TB_W, 4.7))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(LEFT_W, 3.6), Pt(TB_W, 3.6))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(LEFT_W, 2.0), Pt(TB_W, 2.0))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(LEFT_W, 1.0), Pt(TB_W, 1.0))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(LEFT_W, 4.7), PtTB(TB_W, 4.7))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(LEFT_W, 3.6), PtTB(TB_W, 3.6))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(LEFT_W, 2.0), PtTB(TB_W, 2.0))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(LEFT_W, 1.0), PtTB(TB_W, 1.0))
 
     ' Stage/sheet/sheets cells on right.
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(14.0, 1.0), Pt(14.0, 3.6))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(15.5, 1.0), Pt(15.5, 3.6))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(17.0, 1.0), Pt(17.0, 3.6))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(13.4, 1.0), PtTB(13.4, 3.6))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(14.8, 1.0), PtTB(14.8, 3.6))
+    Call oSketch.SketchLines.AddByTwoPoints(PtTB(16.2, 1.0), PtTB(16.2, 3.6))
 End Sub
 
 Private Sub AddStaticLabels(ByVal oSketch As DrawingSketch)
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 5.0), "Заказчик:")
+    Call oSketch.TextBoxes.AddFitted(PtTB(6.2, 5.0), "Заказчик:")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(14.1, 3.15), "Стадия")
-    Call oSketch.TextBoxes.AddFitted(Pt(15.6, 3.15), "Лист")
-    Call oSketch.TextBoxes.AddFitted(Pt(17.05, 3.15), "Листов")
+    Call oSketch.TextBoxes.AddFitted(PtTB(13.45, 3.15), "Стадия")
+    Call oSketch.TextBoxes.AddFitted(PtTB(14.85, 3.15), "Лист")
+    Call oSketch.TextBoxes.AddFitted(PtTB(16.25, 3.15), "Листов")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(0.1, 5.0), "Изм.")
-    Call oSketch.TextBoxes.AddFitted(Pt(1.05, 5.0), "Кол.уч")
-    Call oSketch.TextBoxes.AddFitted(Pt(2.05, 5.0), "Лист")
-    Call oSketch.TextBoxes.AddFitted(Pt(3.05, 5.0), "№док.")
-    Call oSketch.TextBoxes.AddFitted(Pt(4.15, 5.0), "Подпись")
-    Call oSketch.TextBoxes.AddFitted(Pt(5.25, 5.0), "Дата")
+    Call oSketch.TextBoxes.AddFitted(PtTB(0.1, 5.0), "Изм.")
+    Call oSketch.TextBoxes.AddFitted(PtTB(1.05, 5.0), "Кол.уч")
+    Call oSketch.TextBoxes.AddFitted(PtTB(2.05, 5.0), "Лист")
+    Call oSketch.TextBoxes.AddFitted(PtTB(3.05, 5.0), "№док.")
+    Call oSketch.TextBoxes.AddFitted(PtTB(4.05, 5.0), "Подпись")
+    Call oSketch.TextBoxes.AddFitted(PtTB(5.05, 5.0), "Дата")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(0.15, 0.4), "Разработал")
-    Call oSketch.TextBoxes.AddFitted(Pt(17.7, 0.2), "A3")
+    Call oSketch.TextBoxes.AddFitted(PtTB(0.15, 0.4), "Разработал")
+    Call oSketch.TextBoxes.AddFitted(PtTB(17.0, 0.2), "A3")
 End Sub
 
 Private Sub AddPromptedFields(ByVal oSketch As DrawingSketch)
     ' Prompt dependency intentionally disabled as a stabilization step.
-    Call oSketch.TextBoxes.AddFitted(Pt(8.6, 5.0), "ООО Заказчик")
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 4.0), "RKM-000")
+    Call oSketch.TextBoxes.AddFitted(PtTB(8.0, 5.0), "ООО Заказчик")
+    Call oSketch.TextBoxes.AddFitted(PtTB(6.2, 4.0), "RKM-000")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 3.1), "Наименование объекта, строка 1")
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 2.7), "Наименование объекта, строка 2")
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 2.3), "Наименование объекта, строка 3")
+    Call oSketch.TextBoxes.AddFitted(PtTB(6.2, 3.1), "Наименование объекта, строка 1")
+    Call oSketch.TextBoxes.AddFitted(PtTB(6.2, 2.7), "Наименование объекта, строка 2")
+    Call oSketch.TextBoxes.AddFitted(PtTB(6.2, 2.3), "Наименование объекта, строка 3")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 1.55), "Раздел, строка 1")
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 1.25), "Раздел, строка 2")
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 0.95), "Раздел, строка 3")
+    Call oSketch.TextBoxes.AddFitted(PtTB(6.2, 1.55), "Раздел, строка 1")
+    Call oSketch.TextBoxes.AddFitted(PtTB(6.2, 1.25), "Раздел, строка 2")
+    Call oSketch.TextBoxes.AddFitted(PtTB(6.2, 0.95), "Раздел, строка 3")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(14.2, 2.55), "П")
-    Call oSketch.TextBoxes.AddFitted(Pt(15.6, 2.55), "1")
-    Call oSketch.TextBoxes.AddFitted(Pt(17.05, 2.55), "1")
+    Call oSketch.TextBoxes.AddFitted(PtTB(13.55, 2.55), "П")
+    Call oSketch.TextBoxes.AddFitted(PtTB(14.95, 2.55), "1")
+    Call oSketch.TextBoxes.AddFitted(PtTB(16.35, 2.55), "1")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(6.7, 0.45), "Общий вид")
-    Call oSketch.TextBoxes.AddFitted(Pt(11.8, 0.45), "Проектная организация")
+    Call oSketch.TextBoxes.AddFitted(PtTB(6.2, 0.45), "Общий вид")
+    Call oSketch.TextBoxes.AddFitted(PtTB(11.2, 0.45), "Проектная организация")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(2.7, 0.4), "И.И. Иванов")
-    Call oSketch.TextBoxes.AddFitted(Pt(5.35, 0.4), "01.01.2026")
+    Call oSketch.TextBoxes.AddFitted(PtTB(2.7, 0.4), "И.И. Иванов")
+    Call oSketch.TextBoxes.AddFitted(PtTB(5.15, 0.4), "01.01.2026")
 End Sub
