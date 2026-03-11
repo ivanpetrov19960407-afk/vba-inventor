@@ -2,9 +2,10 @@ Attribute VB_Name = "RKM_TitleBlockPrompted"
 Option Explicit
 
 Private Const TB_X_DOC_RIGHT_MM As Double = 110#
-Private Const TB_X_DESIGN_RIGHT_MM As Double = 150#
-Private Const TB_X_STAGE_RIGHT_MM As Double = 170#
-Private Const TB_X_SHEET_RIGHT_MM As Double = 185#
+Private Const TB_X_DESIGN_RIGHT_MM As Double = 140#
+Private Const TB_X_STAGE_RIGHT_MM As Double = 162#
+Private Const TB_X_SHEET_RIGHT_MM As Double = 174#
+Private Const TB_X_SHEETS_RIGHT_MM As Double = 185#
 
 Private Const TB_Y_ROW1_MM As Double = 10#
 Private Const TB_Y_ROW2_MM As Double = 25#
@@ -84,10 +85,11 @@ Private Sub DrawTitleBlockGeometry(ByVal oDoc As DrawingDocument, ByVal oSketch 
     DrawVLineMm oDoc, oSketch, x1, y1, TB_X_DOC_RIGHT_MM, 0#, TB_Y_TOP_MM
     DrawVLineMm oDoc, oSketch, x1, y1, TB_X_DESIGN_RIGHT_MM, 0#, TB_Y_TOP_MM
     DrawVLineMm oDoc, oSketch, x1, y1, TB_X_STAGE_RIGHT_MM, 0#, TB_Y_TOP_MM
+    DrawVLineMm oDoc, oSketch, x1, y1, TB_X_SHEET_RIGHT_MM, 0#, TB_Y_TOP_MM
 
-    DrawHLineMm oDoc, oSketch, x1, y1, 0#, TB_X_SHEET_RIGHT_MM, TB_Y_ROW1_MM
-    DrawHLineMm oDoc, oSketch, x1, y1, 0#, TB_X_SHEET_RIGHT_MM, TB_Y_ROW2_MM
-    DrawHLineMm oDoc, oSketch, x1, y1, 0#, TB_X_SHEET_RIGHT_MM, TB_Y_ROW3_MM
+    DrawHLineMm oDoc, oSketch, x1, y1, 0#, TB_X_SHEETS_RIGHT_MM, TB_Y_ROW1_MM
+    DrawHLineMm oDoc, oSketch, x1, y1, 0#, TB_X_SHEETS_RIGHT_MM, TB_Y_ROW2_MM
+    DrawHLineMm oDoc, oSketch, x1, y1, 0#, TB_X_SHEETS_RIGHT_MM, TB_Y_ROW3_MM
 End Sub
 
 Private Sub AddTitleBlockLabels(ByVal oDoc As DrawingDocument, ByVal oSketch As DrawingSketch)
@@ -104,7 +106,8 @@ Private Sub AddTitleBlockLabels(ByVal oDoc As DrawingDocument, ByVal oSketch As 
 
     AddLabelBox oDoc, oSketch, x1, y1, TB_X_DOC_RIGHT_MM + 0.8, TB_Y_ROW3_MM + 0.8, TB_X_DESIGN_RIGHT_MM - 0.8, TB_Y_TOP_MM - 0.8, RuText(1057, 1090, 1072, 1076, 1080, 1103)
     AddLabelBox oDoc, oSketch, x1, y1, TB_X_DESIGN_RIGHT_MM + 0.5, TB_Y_ROW3_MM + 0.8, TB_X_STAGE_RIGHT_MM - 0.5, TB_Y_TOP_MM - 0.8, RuText(1051, 1080, 1089, 1090)
-    AddLabelBox oDoc, oSketch, x1, y1, TB_X_STAGE_RIGHT_MM + 0.5, TB_Y_ROW3_MM + 0.8, TB_X_SHEET_RIGHT_MM - 0.5, TB_Y_TOP_MM - 0.8, RuText(1051, 1080, 1089, 1090, 1086, 1074)
+    AddLabelBox oDoc, oSketch, x1, y1, TB_X_STAGE_RIGHT_MM + 0.5, TB_Y_ROW3_MM + 0.8, TB_X_SHEET_RIGHT_MM - 0.5, TB_Y_TOP_MM - 0.8, RuText(1051, 1080, 1089, 1090)
+    AddLabelBox oDoc, oSketch, x1, y1, TB_X_SHEET_RIGHT_MM + 0.5, TB_Y_ROW3_MM + 0.8, TB_X_SHEETS_RIGHT_MM - 0.5, TB_Y_TOP_MM - 0.8, RuText(1051, 1080, 1089, 1090, 1086, 1074)
 
     AddLabelBox oDoc, oSketch, x1, y1, TB_X_DOC_RIGHT_MM + 1#, 1#, TB_X_DESIGN_RIGHT_MM - 1#, TB_Y_ROW1_MM - 1#, "A3"
 End Sub
