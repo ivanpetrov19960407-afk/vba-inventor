@@ -1,8 +1,8 @@
 Attribute VB_Name = "RKM_Utils"
 Option Explicit
 
-Public Const RKM_BORDER_NAME As String = "RKM_A3_BORDER"
-Public Const RKM_TITLEBLOCK_NAME As String = "RKM_A3_TITLEBLOCK"
+Public Const RKM_BORDER_NAME As String = "RKM_SPDS_A3_BORDER"
+Public Const RKM_TITLEBLOCK_NAME As String = "RKM_SPDS_A3_FORM3_TITLEBLOCK"
 
 Public Const MM_TO_CM As Double = 0.1
 Public Const A3_WIDTH_MM As Double = 420#
@@ -12,8 +12,30 @@ Public Const FRAME_OTHER_MM As Double = 5#
 Public Const TITLE_W_MM As Double = 185#
 Public Const TITLE_H_MM As Double = 55#
 
-Public Function MmToCm(ByVal valueMm As Double) As Double
-    MmToCm = valueMm * MM_TO_CM
+Public Const DIM_TOLERANCE_MM As Double = 0.05
+
+Public Function MmToCm(ByVal oDoc As DrawingDocument, ByVal valueMm As Double) As Double
+    Dim oUom As UnitsOfMeasure
+
+    If oDoc Is Nothing Then
+        MmToCm = valueMm * MM_TO_CM
+        Exit Function
+    End If
+
+    Set oUom = oDoc.UnitsOfMeasure
+    MmToCm = oUom.ConvertUnits(valueMm, kMillimeterLengthUnits, kCentimeterLengthUnits)
+End Function
+
+Public Function CmToMm(ByVal oDoc As DrawingDocument, ByVal valueCm As Double) As Double
+    Dim oUom As UnitsOfMeasure
+
+    If oDoc Is Nothing Then
+        CmToMm = valueCm / MM_TO_CM
+        Exit Function
+    End If
+
+    Set oUom = oDoc.UnitsOfMeasure
+    CmToMm = oUom.ConvertUnits(valueCm, kCentimeterLengthUnits, kMillimeterLengthUnits)
 End Function
 
 Public Function Pt(ByVal x As Double, ByVal y As Double) As Point2d
@@ -48,11 +70,6 @@ Public Function GetActiveDrawingDocument(ByVal oApp As Inventor.Application) As 
     Set GetActiveDrawingDocument = oApp.ActiveDocument
 End Function
 
-Public Function GetActiveSheet(ByVal oDoc As DrawingDocument) As Sheet
-    If oDoc Is Nothing Then Exit Function
-    Set GetActiveSheet = oDoc.ActiveSheet
-End Function
-
 Public Function EnsureA3LandscapeSheet(ByVal oDoc As DrawingDocument) As Sheet
     Dim oSheet As Sheet
 
@@ -60,8 +77,19 @@ Public Function EnsureA3LandscapeSheet(ByVal oDoc As DrawingDocument) As Sheet
     Set oSheet = oDoc.ActiveSheet
     If oSheet Is Nothing Then Exit Function
 
-    On Error GoTo ResizeFailed
+    On Error GoTo TryCreateSheet
     oSheet.ChangeSize kA3DrawingSheetSize, kLandscapePageOrientation
+    oSheet.Activate
+    On Error GoTo 0
+
+    Set EnsureA3LandscapeSheet = oSheet
+    Exit Function
+
+TryCreateSheet:
+    On Error GoTo ResizeFailed
+    Err.Clear
+    Set oSheet = oDoc.Sheets.Add(kA3DrawingSheetSize, kLandscapePageOrientation)
+    oSheet.Activate
     On Error GoTo 0
 
     Set EnsureA3LandscapeSheet = oSheet
@@ -69,7 +97,29 @@ Public Function EnsureA3LandscapeSheet(ByVal oDoc As DrawingDocument) As Sheet
 
 ResizeFailed:
     On Error GoTo 0
-    MsgBox "Could not set active sheet to A3 Landscape.", vbCritical
+    MsgBox "Could not set or create A3 Landscape sheet.", vbCritical
+End Function
+
+Public Function ValidateSpdsA3Sheet(ByVal oDoc As DrawingDocument, ByVal oSheet As Sheet) As Boolean
+    Dim widthMm As Double
+    Dim heightMm As Double
+
+    ValidateSpdsA3Sheet = False
+
+    If oDoc Is Nothing Then Exit Function
+    If oSheet Is Nothing Then Exit Function
+
+    widthMm = CmToMm(oDoc, oSheet.Width)
+    heightMm = CmToMm(oDoc, oSheet.Height)
+
+    If Abs(widthMm - A3_WIDTH_MM) > DIM_TOLERANCE_MM Or Abs(heightMm - A3_HEIGHT_MM) > DIM_TOLERANCE_MM Then
+        MsgBox "Active sheet is not A3 landscape after resize/create." & vbCrLf & _
+               "Expected (mm): 420 x 297" & vbCrLf & _
+               "Actual (mm): " & FormatNumber(widthMm, 2) & " x " & FormatNumber(heightMm, 2), vbCritical
+        Exit Function
+    End If
+
+    ValidateSpdsA3Sheet = True
 End Function
 
 Public Sub RemoveSheetBorder(ByVal oSheet As Sheet)

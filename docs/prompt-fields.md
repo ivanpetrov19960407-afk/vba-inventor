@@ -1,8 +1,12 @@
-# Prompt-поля штампа
+# Prompt-поля штампа СПДС форма 3
 
-В текущей версии макроса prompt-поля не используются.
+В текущей версии `RKM_SPDS_A3_FORM3_TITLEBLOCK` использует prompted `TextBox` через маркеры `<Prompt>...</Prompt>`.
 
-Штамп `RKM_A3_TITLEBLOCK` вставляется со статическими подписями.
-Если потребуется вернуть prompt-поля, нужно:
-1. Добавить `TextBoxes.AddByRectangle(..., kPromptedEntryText)` в `TitleBlockDefinition.Edit`.
-2. Передавать массив `PromptStrings` в `Sheet.AddTitleBlock`.
+При вставке штампа (`Sheet.AddTitleBlock`) макрос обязательно передаёт `PromptStrings` в корректном порядке (по порядку добавления prompted TextBox в определении):
+1. `DOC_NAME`
+2. `OBJ_NAME`
+3. `STAGE`
+4. `SHEET`
+5. `SHEETS`
+
+Если изменить состав/порядок prompted-полей в `TitleBlockDefinition.Edit`, нужно синхронно обновить массив в `BuildSpdsPromptStrings`.
