@@ -26,11 +26,14 @@ Public Function EnsureRkmTitleBlockDefinition(ByVal oDoc As DrawingDocument) As 
 End Function
 
 Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleBlockDefinition, ByVal promptValues As Variant)
+    Dim pt As Point2d
+
     If oSheet Is Nothing Then Exit Sub
     If oDef Is Nothing Then Exit Sub
 
     Call RemoveSheetTitleBlock(oSheet)
-    Call oSheet.AddTitleBlock(oDef, , promptValues)
+    Set pt = ThisApplication.TransientGeometry.CreatePoint2d(0, 0)
+    Call oSheet.AddTitleBlock(oDef, pt, promptValues)
 End Sub
 
 Private Sub DrawTitleBlockGrid(ByVal oSketch As DrawingSketch)
