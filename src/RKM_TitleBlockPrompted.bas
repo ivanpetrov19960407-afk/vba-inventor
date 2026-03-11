@@ -5,7 +5,6 @@ Option Explicit
 Private Const TB_W As Double = 17.8
 ' Title block total height (A3 bottom-right zone), cm.
 Private Const TB_H As Double = 5.5
-Private Const LEFT_W As Double = 6#
 
 Public Function EnsureRkmTitleBlockDefinition(ByVal oDoc As DrawingDocument) As TitleBlockDefinition
     Dim defName As String
@@ -104,76 +103,36 @@ ConvertFailed:
 End Function
 
 Private Sub DrawTitleBlockGrid(ByVal oSketch As DrawingSketch)
-    ' Inventor controls title block placement when inserting the definition.
-    ' Keep internal sketch geometry local and compact from (0,0) to (TB_W, TB_H).
-    ' Outer box.
+    ' Compact GOST Form 3 stamp only.
     Call oSketch.SketchLines.AddAsTwoPointRectangle(Pt(0#, 0#), Pt(TB_W, TB_H))
 
-    ' Left mini-table.
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(LEFT_W, 0#), Pt(LEFT_W, TB_H))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 4.7), Pt(LEFT_W, 4.7))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 4.0), Pt(LEFT_W, 4.0))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 3.3), Pt(LEFT_W, 3.3))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 2.4), Pt(LEFT_W, 2.4))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 1.2), Pt(LEFT_W, 1.2))
+    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 4.2), Pt(TB_W, 4.2))
+    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 3.0), Pt(TB_W, 3.0))
+    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 2.0), Pt(TB_W, 2.0))
+    Call oSketch.SketchLines.AddByTwoPoints(Pt(0#, 1.0), Pt(TB_W, 1.0))
 
-    ' Revision sub-columns.
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(1.0, 3.3), Pt(1.0, 5.5))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(2.0, 3.3), Pt(2.0, 5.5))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(3.0, 3.3), Pt(3.0, 5.5))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(4.0, 3.3), Pt(4.0, 5.5))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(5.0, 3.3), Pt(5.0, 5.5))
-
-    ' Right content block row guides.
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(LEFT_W, 4.7), Pt(TB_W, 4.7))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(LEFT_W, 3.6), Pt(TB_W, 3.6))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(LEFT_W, 2.0), Pt(TB_W, 2.0))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(LEFT_W, 1.0), Pt(TB_W, 1.0))
-
-    ' Stage/sheet/sheets cells on right.
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(13.4, 1.0), Pt(13.4, 3.6))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(14.8, 1.0), Pt(14.8, 3.6))
-    Call oSketch.SketchLines.AddByTwoPoints(Pt(16.2, 1.0), Pt(16.2, 3.6))
+    Call oSketch.SketchLines.AddByTwoPoints(Pt(12.4, 0#), Pt(12.4, TB_H))
+    Call oSketch.SketchLines.AddByTwoPoints(Pt(14.2, 0#), Pt(14.2, 3.0))
+    Call oSketch.SketchLines.AddByTwoPoints(Pt(16.0, 0#), Pt(16.0, 3.0))
 End Sub
 
 Private Sub AddStaticLabels(ByVal oSketch As DrawingSketch)
-    Call oSketch.TextBoxes.AddFitted(Pt(6.2, 5.0), ":")
-
-    Call oSketch.TextBoxes.AddFitted(Pt(13.45, 3.15), "")
-    Call oSketch.TextBoxes.AddFitted(Pt(14.85, 3.15), "")
-    Call oSketch.TextBoxes.AddFitted(Pt(16.25, 3.15), "")
-
-    Call oSketch.TextBoxes.AddFitted(Pt(0.1, 5.0), ".")
-    Call oSketch.TextBoxes.AddFitted(Pt(1.05, 5.0), ".")
-    Call oSketch.TextBoxes.AddFitted(Pt(2.05, 5.0), "")
-    Call oSketch.TextBoxes.AddFitted(Pt(3.05, 5.0), ".")
-    Call oSketch.TextBoxes.AddFitted(Pt(4.05, 5.0), "")
-    Call oSketch.TextBoxes.AddFitted(Pt(5.05, 5.0), "")
-
-    Call oSketch.TextBoxes.AddFitted(Pt(0.15, 0.4), "")
-    Call oSketch.TextBoxes.AddFitted(Pt(17.0, 0.2), "A3")
+    Call oSketch.TextBoxes.AddFitted(Pt(14.35, 2.35), "P")
+    Call oSketch.TextBoxes.AddFitted(Pt(16.15, 2.35), "1")
+    Call oSketch.TextBoxes.AddFitted(Pt(16.15, 0.25), "A3")
 End Sub
 
 Private Sub AddPromptedFields(ByVal oSketch As DrawingSketch)
-    ' Prompt dependency intentionally disabled as a stabilization step.
-    Call oSketch.TextBoxes.AddFitted(Pt(8.0, 5.0), " ")
-    Call oSketch.TextBoxes.AddFitted(Pt(6.2, 4.0), "RKM-000")
+    Call oSketch.TextBoxes.AddFitted(Pt(0.3, 4.45), "RKM-000")
+    Call oSketch.TextBoxes.AddFitted(Pt(0.3, 3.25), "OBJ 1")
+    Call oSketch.TextBoxes.AddFitted(Pt(0.3, 2.25), "OBJ 2")
+    Call oSketch.TextBoxes.AddFitted(Pt(0.3, 1.25), "OBJ 3")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(6.2, 3.1), " ,  1")
-    Call oSketch.TextBoxes.AddFitted(Pt(6.2, 2.7), " ,  2")
-    Call oSketch.TextBoxes.AddFitted(Pt(6.2, 2.3), " ,  3")
+    Call oSketch.TextBoxes.AddFitted(Pt(12.6, 4.45), "SEC 1")
+    Call oSketch.TextBoxes.AddFitted(Pt(12.6, 3.25), "SEC 2")
+    Call oSketch.TextBoxes.AddFitted(Pt(12.6, 2.25), "SEC 3")
 
-    Call oSketch.TextBoxes.AddFitted(Pt(6.2, 1.55), ",  1")
-    Call oSketch.TextBoxes.AddFitted(Pt(6.2, 1.25), ",  2")
-    Call oSketch.TextBoxes.AddFitted(Pt(6.2, 0.95), ",  3")
-
-    Call oSketch.TextBoxes.AddFitted(Pt(13.55, 2.55), "")
-    Call oSketch.TextBoxes.AddFitted(Pt(14.95, 2.55), "1")
-    Call oSketch.TextBoxes.AddFitted(Pt(16.35, 2.55), "1")
-
-    Call oSketch.TextBoxes.AddFitted(Pt(6.2, 0.45), " ")
-    Call oSketch.TextBoxes.AddFitted(Pt(11.2, 0.45), " ")
-
-    Call oSketch.TextBoxes.AddFitted(Pt(2.7, 0.4), ".. ")
-    Call oSketch.TextBoxes.AddFitted(Pt(5.15, 0.4), "01.01.2026")
+    Call oSketch.TextBoxes.AddFitted(Pt(0.3, 0.25), "ORG")
+    Call oSketch.TextBoxes.AddFitted(Pt(6.0, 0.25), "IVANOV")
+    Call oSketch.TextBoxes.AddFitted(Pt(9.6, 0.25), "01.01.2026")
 End Sub
