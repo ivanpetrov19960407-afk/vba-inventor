@@ -27,13 +27,15 @@ Public Sub Rkm_CreateOrApplyA3Frame_SPDS()
 
     On Error GoTo EH
 
-    Set oDoc = EnsureDrawingDocument()
+    Set oDoc = GetActiveDrawingDocument(ThisApplication)
     If oDoc Is Nothing Then Exit Sub
 
     If Not CanEditDrawingResources(ThisApplication) Then Exit Sub
 
     Set oSheet = EnsureA3LandscapeSheet(oDoc)
     If oSheet Is Nothing Then Exit Sub
+
+    If Not ValidateSpdsA3Sheet(oDoc, oSheet) Then Exit Sub
 
     PrintSheetDiagnostics oDoc, oSheet
     Debug.Print "Sheet.Width (mm): " & Fmt(oDoc.UnitsOfMeasure.ConvertUnits(oSheet.Width, kCentimeterLengthUnits, kMillimeterLengthUnits))
@@ -58,55 +60,6 @@ Public Sub Rkm_CreateOrApplyA3Frame_SPDS()
 EH:
     MsgBox "Error: " & Err.Number & " - " & Err.Description, vbCritical
 End Sub
-
-Private Function EnsureDrawingDocument() As DrawingDocument
-    If ThisApplication.ActiveDocument Is Nothing Then
-        MsgBox "Open a drawing document first.", vbExclamation
-        Exit Function
-    End If
-
-    If ThisApplication.ActiveDocument.DocumentType <> kDrawingDocumentObject Then
-        MsgBox "Active document is not DrawingDocument.", vbExclamation
-        Exit Function
-    End If
-
-    Set EnsureDrawingDocument = ThisApplication.ActiveDocument
-End Function
-
-Private Function EnsureA3LandscapeSheet(ByVal oDoc As DrawingDocument) As Sheet
-    Dim oSheet As Sheet
-    Dim wMm As Double
-    Dim hMm As Double
-
-    If oDoc Is Nothing Then Exit Function
-
-    Set oSheet = oDoc.ActiveSheet
-    If oSheet Is Nothing Then Exit Function
-
-    On Error Resume Next
-    oSheet.ChangeSize kA3DrawingSheetSize, kLandscapePageOrientation
-    If Err.Number <> 0 Then
-        Err.Clear
-        Set oSheet = oDoc.Sheets.Add(kA3DrawingSheetSize, kLandscapePageOrientation)
-    End If
-    On Error GoTo 0
-
-    If oSheet Is Nothing Then
-        MsgBox "Could not set/create A3 landscape sheet.", vbCritical
-        Exit Function
-    End If
-
-    oSheet.Activate
-
-    wMm = CmToMm(oDoc, oSheet.Width)
-    hMm = CmToMm(oDoc, oSheet.Height)
-    If Abs(wMm - A3_W_MM) > A3_TOL_MM Or Abs(hMm - A3_H_MM) > A3_TOL_MM Then
-        MsgBox "Active sheet is not A3 landscape after resize/create.", vbCritical
-        Exit Function
-    End If
-
-    Set EnsureA3LandscapeSheet = oSheet
-End Function
 
 Private Function EnsureSpdsA3BorderDefinition(ByVal oDoc As DrawingDocument) As BorderDefinition
     Dim oDef As BorderDefinition
@@ -196,7 +149,7 @@ Public Sub Rkm_SelfTest_SPDS_A3()
     Dim widthMm As Double
     Dim heightMm As Double
 
-    Set oDoc = EnsureDrawingDocument()
+    Set oDoc = GetActiveDrawingDocument(ThisApplication)
     If oDoc Is Nothing Then Exit Sub
 
     Set oSheet = EnsureA3LandscapeSheet(oDoc)
@@ -217,14 +170,6 @@ End Sub
 
 Private Function Mm(ByVal valueMm As Double) As Double
     Mm = valueMm * 0.1
-End Function
-
-Private Function CmToMm(ByVal oDoc As DrawingDocument, ByVal valueCm As Double) As Double
-    If oDoc Is Nothing Then
-        CmToMm = valueCm * 10#
-    Else
-        CmToMm = oDoc.UnitsOfMeasure.ConvertUnits(valueCm, kCentimeterLengthUnits, kMillimeterLengthUnits)
-    End If
 End Function
 
 Private Function FindBorderDefinition(ByVal oDoc As DrawingDocument, ByVal defName As String) As BorderDefinition
