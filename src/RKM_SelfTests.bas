@@ -55,7 +55,11 @@ Public Sub Rkm_SelfTest_Create3ViewsOnActiveSheet()
     Debug.Print "SELFTEST: blocked collisions = " & CStr(collisions)
 
     If oSheet.DrawingViews.Count <> 3 Then
-        MsgBox "SELFTEST FAILED: expected 3 views, actual = " & CStr(oSheet.DrawingViews.Count), vbExclamation
+        If oSheet.DrawingViews.Count = 0 Then
+            MsgBox "SELFTEST FAILED: 0 views. Check Immediate window. Most likely base view creation/fit failed.", vbExclamation
+        Else
+            MsgBox "SELFTEST FAILED: expected 3 views, actual = " & CStr(oSheet.DrawingViews.Count), vbExclamation
+        End If
         Exit Sub
     End If
 
@@ -64,6 +68,68 @@ Public Sub Rkm_SelfTest_Create3ViewsOnActiveSheet()
     Else
         MsgBox "SELFTEST FAILED: views=" & CStr(oSheet.DrawingViews.Count) & "; collisions=" & CStr(collisions) & "; details in Immediate window.", vbExclamation
     End If
+End Sub
+
+Public Sub Rkm_SelfTest_BaseViewOnly_OnActiveSheet()
+    Dim oDoc As DrawingDocument
+    Dim oSheet As Sheet
+    Dim oModelDoc As Document
+    Dim firstAngle As Boolean
+    Dim blockedRect As Object
+    Dim frontRect As Object
+    Dim baseView As DrawingView
+    Dim scaleValue As Double
+
+    Set oDoc = GetActiveDrawingDocument(ThisApplication)
+    If oDoc Is Nothing Then Exit Sub
+
+    Set oSheet = oDoc.ActiveSheet
+    If oSheet Is Nothing Then Exit Sub
+
+    Set oModelDoc = GetFirstReferencedModel(oDoc)
+    If oModelDoc Is Nothing Then
+        Debug.Print "SELFTEST BASEVIEW: no referenced model found on active drawing."
+        Exit Sub
+    End If
+
+    RemoveAllDrawingViewsFromSheet oSheet
+
+    firstAngle = SelfTest_GetProjectionStandard(oDoc)
+    Set frontRect = SelfTest_GetFrontViewRectCm(oDoc, firstAngle)
+    Set blockedRect = SelfTest_GetTitleBlockBlockedRectCm(oDoc)
+    scaleValue = 1#
+
+    Debug.Print "SELFTEST BASEVIEW: firstAngle=" & CStr(firstAngle) & _
+                "; model=" & oModelDoc.DisplayName & _
+                "; modelPath=" & oModelDoc.FullFileName & _
+                "; scale=" & CStr(scaleValue)
+    Debug.Print "SELFTEST BASEVIEW: frontRect L=" & CStr(frontRect("Left")) & ", R=" & CStr(frontRect("Right")) & ", B=" & CStr(frontRect("Bottom")) & ", T=" & CStr(frontRect("Top"))
+    Debug.Print "SELFTEST BASEVIEW: blockedRect L=" & CStr(blockedRect("Left")) & ", R=" & CStr(blockedRect("Right")) & ", B=" & CStr(blockedRect("Bottom")) & ", T=" & CStr(blockedRect("Top"))
+
+    On Error Resume Next
+    Set baseView = oSheet.DrawingViews.AddBaseView( _
+        oModelDoc, Pt((frontRect("Left") + frontRect("Right")) / 2#, (frontRect("Bottom") + frontRect("Top")) / 2#), _
+        scaleValue, kFrontViewOrientation, kHiddenLineRemovedDrawingViewStyle)
+    On Error GoTo 0
+
+    If baseView Is Nothing Then
+        MsgBox "BASEVIEW FAILED: AddBaseView returned Nothing", vbExclamation
+        Exit Sub
+    End If
+
+    Debug.Print "SELFTEST BASEVIEW: view Left=" & CStr(baseView.Left) & "; Top=" & CStr(baseView.Top) & "; Width=" & CStr(baseView.Width) & "; Height=" & CStr(baseView.Height)
+
+    If Not SelfTest_ViewFitsRect(baseView, frontRect) Then
+        MsgBox "BASEVIEW FAILED: frontRect fit failed", vbExclamation
+        Exit Sub
+    End If
+
+    If SelfTest_ViewIntersectsRect(baseView, blockedRect) Then
+        MsgBox "BASEVIEW FAILED: blockedRect collision", vbExclamation
+        Exit Sub
+    End If
+
+    MsgBox "BASEVIEW OK", vbInformation
 End Sub
 
 Private Sub SelfTest_PrintSheetViews(ByVal oSheet As Sheet)
@@ -148,6 +214,15 @@ Private Function SelfTest_ViewIntersectsRect(ByVal oView As DrawingView, ByVal r
 
     Set viewRect = SelfTest_CreateRect(oView.Left, oView.Left + oView.Width, oView.Top - oView.Height, oView.Top)
     SelfTest_ViewIntersectsRect = Not (viewRect("Right") <= rect("Left") Or rect("Right") <= viewRect("Left") Or viewRect("Top") <= rect("Bottom") Or rect("Top") <= viewRect("Bottom"))
+End Function
+
+Private Function SelfTest_ViewFitsRect(ByVal oView As DrawingView, ByVal rect As Object) As Boolean
+    Dim viewRect As Object
+
+    If oView Is Nothing Then Exit Function
+
+    Set viewRect = SelfTest_CreateRect(oView.Left, oView.Left + oView.Width, oView.Top - oView.Height, oView.Top)
+    SelfTest_ViewFitsRect = (viewRect("Left") >= rect("Left")) And (viewRect("Right") <= rect("Right")) And (viewRect("Bottom") >= rect("Bottom")) And (viewRect("Top") <= rect("Top"))
 End Function
 
 Private Function SelfTest_GetProjectionStandard(ByVal oDoc As DrawingDocument) As Boolean
