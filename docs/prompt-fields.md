@@ -1,23 +1,26 @@
 # Prompt-поля штампа СПДС форма 3
 
-В текущей версии `RKM_SPDS_A3_FORM3_TITLEBLOCK` использует prompted `TextBox` через маркеры `<Prompt>...</Prompt>`.
+В `RKM_SPDS_A3_FORM3_V17` используются prompted `TextBox` через маркеры `<Prompt>...</Prompt>`.
 
-При вставке штампа (`Sheet.AddTitleBlock`) макрос сначала проверяет, есть ли в определении prompted-поля (`<Prompt>...</Prompt>`). Если поля есть, передаются `PromptStrings` в корректном порядке (по порядку добавления prompted `TextBox` в определении):
-1. `DOC_NAME`
-2. `OBJ_NAME`
-3. `STAGE`
-4. `SHEET`
-5. `SHEETS`
+## Фактический порядок PromptStrings
+При `Sheet.AddTitleBlock` массив `PromptStrings` формируется строго в порядке:
+1. `CODE`
+2. `PROJECT_NAME`
+3. `DRAWING_NAME`
+4. `ORG_NAME`
+5. `STAGE`
+6. `SHEET`
+7. `SHEETS`
 
-Если изменить состав/порядок prompted-полей в `TitleBlockDefinition.Edit`, нужно синхронно обновить массив в `BuildPromptStringsIfNeeded`.
+Порядок централизован в `GetPromptOrder()` (`src/RKM_TitleBlockPrompted.bas`).
 
+## Источник значений
+1. Значения из Excel (если колонка есть и ячейка не пустая).
+2. Для `SHEET`/`SHEETS` при пустых значениях — авторасчёт по индексу листа и общему количеству.
+3. Для остальных полей — дефолты из `DefaultPromptMap()`.
 
-## Значения по умолчанию
-Текущие значения по умолчанию для всех prompt-полей — пустые строки:
-- `DOC_NAME = ""`
-- `OBJ_NAME = ""`
-- `STAGE = ""`
-- `SHEET = ""`
-- `SHEETS = ""`
-
-Это сделано намеренно: пользователь может подставить реальные значения позже без изменения геометрии штампа.
+## Почему выбран вариант через PromptStrings
+Выбран путь передачи `PromptStrings` в `Sheet.AddTitleBlock`, потому что:
+- порядок prompt-полей фиксирован и задаётся кодом создания `TitleBlockDefinition`;
+- этот путь проще и стабильнее для идемпотентного пере-применения штампа;
+- не требуется пост-обход `TextBox` и вызовы `SetPromptResultText`.

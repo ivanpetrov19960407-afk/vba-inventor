@@ -1,72 +1,57 @@
-# VBA Inventor: СПДС рамка + штамп A3 (ГОСТ Р 21.101-2020)
+# VBA Inventor: СПДС A3 рамка/штамп + IDW-альбом из Excel
 
 ## Что делает проект
-Этот репозиторий содержит **только исходники VBA** для Autodesk Inventor, которые создают и применяют:
-- `BorderDefinition` для рамки A3 landscape (отступы 20/5 мм, приложение И);
-- `TitleBlockDefinition` для основной надписи СПДС **форма 3** (приложение Ж);
-- идемпотентное повторное применение на лист.
-
-## Текущий scope
-Реализованы только:
-1. рамка;
-2. штамп формы 3;
-3. публичная точка входа запуска.
-
-## Что намеренно вне scope
-- верхние таблицы «Ведомость...»;
-- нижний левый технический текстовый блок;
-- экспорт в `.idw/.dwg`, сборки, ZIP, скриншоты.
+Репозиторий содержит исходники VBA-модулей для Autodesk Inventor, которые:
+- создают/обновляют рамку A3 (`BorderDefinition`) по СПДС;
+- создают/обновляют штамп формы 3 (`TitleBlockDefinition`) с prompted-полями;
+- строят/обновляют альбом `ALB_*` листов в `.idw` по списку моделей;
+- поддерживают сборку из Excel (`ALBUM`) и заполнение штампа по колонкам Excel.
 
 ## Структура
-- `src/RKM_EntryPoints.bas` — публичные макросы запуска.
-- `src/RKM_FrameBorder.bas` — создание/применение BorderDefinition.
-- `src/RKM_TitleBlockPrompted.bas` — создание/применение TitleBlockDefinition.
-- `src/RKM_Utils.bas` — общие функции, единицы/константы, безопасная очистка и поиск ресурсов.
-- `docs/*.md` — спецификация, ручной чек-лист, ограничения.
+- `src/RKM_EntryPoints.bas` — публичные точки входа.
+- `src/RKM_IdwAlbum.bas` — сборка/обновление альбома, листов и видов.
+- `src/RKM_Excel.bas` — чтение Excel (late binding).
+- `src/RKM_FrameBorder.bas` — рамка A3.
+- `src/RKM_TitleBlockPrompted.bas` — штамп и prompt-логика.
+- `src/RKM_Utils.bas` — общие утилиты, диалоги выбора файлов.
+- `docs/excel-format.md` — формат Excel для альбома.
+- `docs/manual-test-checklist.md` — ручной чек-лист.
 
-## Импорт модулей в Inventor VBA
-1. Откройте Inventor.
-2. Откройте VBA Editor (обычно `Alt+F11`).
-3. `File -> Import File...` и импортируйте все `.bas` из `src/`.
-4. Выполните `Debug -> Compile VBAProject`.
-
-### Важно про `Attribute VB_Name`
-- При **Import File** строку `Attribute VB_Name = "..."` оставляйте как есть.
-- При **ручной вставке кода** в окно модуля сначала удалите строку `Attribute VB_Name`, затем вставляйте остальной код.
-
-## Как запускать макрос
-Рекомендуемый запуск:
-- откройте чертёж Inventor (`.idw/.dwg`);
-- запустите `Rkm_CreateOrApplyA3Frame` (алиас вызывает `Rkm_CreateOrApplyA3Frame_SPDS`).
-
-Что делает макрос:
-- проверяет, что активный документ — `DrawingDocument`;
-- переводит активный лист в `A3 Landscape` (или создаёт новый A3 landscape лист, если resize невозможен);
-- валидирует размеры листа `420 x 297 мм`;
-- создаёт или обновляет ресурсы в `Drawing Resources`:
-  - `RKM_SPDS_A3_BORDER`
-  - `RKM_SPDS_A3_FORM3_TITLEBLOCK`
-- удаляет текущие `Sheet.Border` и `Sheet.TitleBlock`;
-- заново применяет рамку и штамп без дубликатов.
-
-## Что делать при сообщении `Finish active sketch/resource edit...`
-Сообщение теперь появляется только если реально открыт `DrawingSketch`/`Sketch`.
-Если оно появилось — завершите редактирование эскиза (Finish Sketch) и запустите макрос снова.
-
-## Prompt-поля штампа
-Штамп `RKM_SPDS_A3_FORM3_TITLEBLOCK` использует prompted-поля:
-- `DOC_NAME`
-- `OBJ_NAME`
+## Prompt-поля штампа (фактические)
+- `CODE`
+- `PROJECT_NAME`
+- `DRAWING_NAME`
+- `ORG_NAME`
 - `STAGE`
 - `SHEET`
 - `SHEETS`
 
-Значения по умолчанию для всех полей пустые (`""`) и собраны в отдельном helper-блоке,
-чтобы их можно было заполнить позже без изменения геометрии штампа.
+Порядок и дефолты собраны в helper-функциях в `RKM_TitleBlockPrompted.bas`.
 
-## Кодировка и кириллица (UTF-8/ANSI)
-- Исходники `.bas` импортируются в VBA чувствительно к кодировке, поэтому безопаснее держать литералы ASCII.
-- Для русских подписей используйте `ChrW(...)` (`RuText`) или внешние ресурсы, чтобы снизить риск искажений при переносе между UTF-8/ANSI окружениями.
+## Как запустить в Inventor
+1. Откройте Inventor.
+2. `Alt+F11` -> VBA Editor.
+3. `File -> Import File...` и импортируйте все `.bas` из `src/`.
+4. `Debug -> Compile VBAProject`.
 
-## Проверка результата
-См. чек-лист: `docs/manual-test-checklist.md`.
+### Запуск макросов
+- Только рамка/штамп на активном листе:
+  - `Rkm_CreateOrApplyA3Frame`
+- Альбом по моделям из Workspace:
+  - `Rkm_BuildOrUpdateAlbum`
+- Альбом по Excel в активный DrawingDocument:
+  - `Rkm_BuildAlbumFromExcel_OnActiveDrawing`
+- Альбом по Excel в новый DrawingDocument + `SaveAs`:
+  - `Rkm_BuildAlbumFromExcel_AndSaveAs`
+
+## Идемпотентность
+Повторный запуск:
+- не плодит дубликаты рамки/штампа на листе;
+- переиспользует существующие листы `ALB_*`;
+- удаляет устаревшие `ALB_*` листы, которых нет в текущем источнике моделей.
+
+## Формат Excel
+См. `docs/excel-format.md`.
+
+## Важное замечание по кодировке
+В VBA-модулях русские строки стараемся хранить через `RuText(ChrW...)`, чтобы снизить риск искажений при переносе `.bas` между разными кодировками.
