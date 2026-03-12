@@ -134,6 +134,96 @@ Public Sub Rkm_SelfTest_BaseViewOnly_OnActiveSheet()
     MsgBox "BASEVIEW OK", vbInformation
 End Sub
 
+Public Sub Rkm_SelfTest_Create3Views_FromPickedModel()
+    Dim oDoc As DrawingDocument
+    Dim oSheet As Sheet
+    Dim oModelDoc As Document
+    Dim blockedRect As Object
+    Dim frontRect As Object
+    Dim topRect As Object
+    Dim sideRect As Object
+    Dim firstAngle As Boolean
+    Dim i As Long
+    Dim oView As DrawingView
+    Dim collisions As Long
+
+    Set oDoc = GetActiveDrawingDocument(ThisApplication)
+    If oDoc Is Nothing Then Exit Sub
+
+    Set oSheet = oDoc.ActiveSheet
+    If oSheet Is Nothing Then Exit Sub
+
+    Set oModelDoc = SelfTest_PickModelDocument(ThisApplication)
+    If oModelDoc Is Nothing Then
+        MsgBox "SELFTEST CANCELLED: model not selected", vbExclamation
+        Exit Sub
+    End If
+
+    RemoveAllDrawingViewsFromSheet oSheet
+
+    firstAngle = SelfTest_GetProjectionStandard(oDoc)
+    Set frontRect = SelfTest_GetFrontViewRectCm(oDoc, firstAngle)
+    Set topRect = SelfTest_GetTopProjectedRectCm(oDoc, firstAngle)
+    Set sideRect = SelfTest_GetSideProjectedRectCm(oDoc, firstAngle)
+    Set blockedRect = SelfTest_GetTitleBlockBlockedRectCm(oDoc)
+
+    Debug.Print "SELFTEST PICKED MODEL: " & oModelDoc.FullFileName
+    Debug.Print "SELFTEST SHEET: " & oSheet.Name
+    Debug.Print "SELFTEST firstAngle=" & CStr(firstAngle)
+    Debug.Print "SELFTEST frontRect L=" & CStr(frontRect("Left")) & ", R=" & CStr(frontRect("Right")) & ", B=" & CStr(frontRect("Bottom")) & ", T=" & CStr(frontRect("Top"))
+    Debug.Print "SELFTEST topRect L=" & CStr(topRect("Left")) & ", R=" & CStr(topRect("Right")) & ", B=" & CStr(topRect("Bottom")) & ", T=" & CStr(topRect("Top"))
+    Debug.Print "SELFTEST sideRect L=" & CStr(sideRect("Left")) & ", R=" & CStr(sideRect("Right")) & ", B=" & CStr(sideRect("Bottom")) & ", T=" & CStr(sideRect("Top"))
+    Debug.Print "SELFTEST blockedRect L=" & CStr(blockedRect("Left")) & ", R=" & CStr(blockedRect("Right")) & ", B=" & CStr(blockedRect("Bottom")) & ", T=" & CStr(blockedRect("Top"))
+
+    BuildSheetViews_Orthographic3 oDoc, oSheet, oModelDoc, Nothing
+
+    Debug.Print "SELFTEST: views on active sheet = " & CStr(oSheet.DrawingViews.Count)
+    For i = 1 To oSheet.DrawingViews.Count
+        Set oView = oSheet.DrawingViews.Item(i)
+        Debug.Print "SELFTEST: view[" & CStr(i) & "] name=" & oView.Name & _
+                    "; Left=" & CStr(oView.Left) & _
+                    "; Top=" & CStr(oView.Top) & _
+                    "; Width=" & CStr(oView.Width) & _
+                    "; Height=" & CStr(oView.Height)
+    Next i
+
+    collisions = 0
+    For i = 1 To oSheet.DrawingViews.Count
+        Set oView = oSheet.DrawingViews.Item(i)
+        If SelfTest_ViewIntersectsRect(oView, blockedRect) Then collisions = collisions + 1
+    Next i
+
+    If oSheet.DrawingViews.Count = 3 And collisions = 0 Then
+        MsgBox "SELFTEST PASSED", vbInformation
+    Else
+        MsgBox "SELFTEST FAILED: expected 3 views, actual = " & CStr(oSheet.DrawingViews.Count) & ". Check Immediate window.", vbExclamation
+    End If
+End Sub
+
+Private Function SelfTest_PickModelDocument(ByVal oApp As Inventor.Application) As Document
+    Dim oDlg As FileDialog
+    Dim filePath As String
+
+    If oApp Is Nothing Then Exit Function
+
+    On Error GoTo EH
+    oApp.CreateFileDialog oDlg
+    If oDlg Is Nothing Then Exit Function
+
+    oDlg.DialogTitle = "Select model for self-test"
+    oDlg.Filter = "Inventor Part (*.ipt)|*.ipt|Inventor Assembly (*.iam)|*.iam"
+    oDlg.FilterIndex = 1
+    oDlg.ShowOpen
+
+    filePath = Trim$(oDlg.FileName)
+    If Len(filePath) = 0 Then Exit Function
+
+    Set SelfTest_PickModelDocument = oApp.Documents.Open(filePath, True)
+    Exit Function
+EH:
+    Set SelfTest_PickModelDocument = Nothing
+End Function
+
 Private Sub SelfTest_PrintSheetViews(ByVal oSheet As Sheet)
     Dim i As Long
     Dim oView As DrawingView
