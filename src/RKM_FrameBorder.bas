@@ -41,9 +41,11 @@ EH:
 End Function
 
 Public Sub ApplyRkmBorderToSheet(ByVal oSheet As Sheet, ByVal oDef As BorderDefinition)
+    Dim newBorder As Border
+
     If oSheet Is Nothing Or oDef Is Nothing Then Exit Sub
     RemoveSheetBorder oSheet
-    oSheet.AddCustomBorder oDef
+    Set newBorder = oSheet.AddBorder(oDef)
 End Sub
 
 Private Sub DrawSpdsInnerFrame(ByVal oDoc As DrawingDocument, ByVal oSketch As DrawingSketch)
