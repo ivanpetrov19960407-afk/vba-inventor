@@ -510,25 +510,19 @@ End Function
 
 Private Function GetSideProjectedRectCm(ByVal oDoc As DrawingDocument, ByVal firstAngle As Boolean) As Object
     Dim safeRect As Object
-    Dim blockedRect As Object
+    Dim frontRect As Object
     Dim splitX As Double
-    Dim splitY As Double
     Dim padCm As Double
     Dim topLimit As Double
     Dim bottomLimit As Double
 
     Set safeRect = InsetRect(GetSheetSafeRectCm(oDoc), MmToCm(oDoc, LAYOUT_PAD_MM))
-    Set blockedRect = GetTitleBlockBlockedRectCm(oDoc)
+    Set frontRect = GetFrontViewRectCm(oDoc, firstAngle)
     padCm = MmToCm(oDoc, GAP_MM)
     splitX = safeRect("Right") - RectWidth(safeRect) * SIDE_COL_RATIO
-    splitY = safeRect("Top") - RectHeight(safeRect) * TOP_ROW_RATIO
-    If firstAngle Then
-        bottomLimit = splitY + padCm
-        topLimit = safeRect("Top") - padCm
-    Else
-        bottomLimit = blockedRect("Top") + padCm
-        topLimit = splitY - padCm
-    End If
+
+    bottomLimit = frontRect("Bottom")
+    topLimit = frontRect("Top")
 
     If bottomLimit < safeRect("Bottom") Then bottomLimit = safeRect("Bottom")
     If topLimit > safeRect("Top") Then topLimit = safeRect("Top")
