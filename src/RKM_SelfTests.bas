@@ -6,6 +6,10 @@ Public Sub Rkm_SelfTest_Create3ViewsOnActiveSheet()
     Dim oSheet As Sheet
     Dim oModelDoc As Document
     Dim blockedRect As Object
+    Dim frontRect As Object
+    Dim topRect As Object
+    Dim sideRect As Object
+    Dim firstAngle As Boolean
     Dim i As Long
     Dim oView As DrawingView
     Dim collisions As Long
@@ -23,6 +27,15 @@ Public Sub Rkm_SelfTest_Create3ViewsOnActiveSheet()
     End If
 
     RemoveAllDrawingViewsFromSheet oSheet
+    firstAngle = SelfTest_GetProjectionStandard(oDoc)
+    Set frontRect = SelfTest_GetFrontViewRectCm(oDoc, firstAngle)
+    Set topRect = SelfTest_GetTopProjectedRectCm(oDoc, firstAngle)
+    Set sideRect = SelfTest_GetSideProjectedRectCm(oDoc, firstAngle)
+    Debug.Print "SELFTEST: firstAngle=" & CStr(firstAngle) & _
+                "; frontRect L=" & CStr(frontRect("Left")) & ", R=" & CStr(frontRect("Right")) & ", B=" & CStr(frontRect("Bottom")) & ", T=" & CStr(frontRect("Top")) & _
+                "; topRect L=" & CStr(topRect("Left")) & ", R=" & CStr(topRect("Right")) & ", B=" & CStr(topRect("Bottom")) & ", T=" & CStr(topRect("Top")) & _
+                "; sideRect L=" & CStr(sideRect("Left")) & ", R=" & CStr(sideRect("Right")) & ", B=" & CStr(sideRect("Bottom")) & ", T=" & CStr(sideRect("Top"))
+
     BuildSheetViews_Orthographic3 oDoc, oSheet, oModelDoc, Nothing
 
     Debug.Print "SELFTEST: views on active sheet = " & CStr(oSheet.DrawingViews.Count)
@@ -108,4 +121,85 @@ Private Function SelfTest_ViewIntersectsRect(ByVal oView As DrawingView, ByVal r
 
     Set viewRect = SelfTest_CreateRect(oView.Left, oView.Left + oView.Width, oView.Top - oView.Height, oView.Top)
     SelfTest_ViewIntersectsRect = Not (viewRect("Right") <= rect("Left") Or rect("Right") <= viewRect("Left") Or viewRect("Top") <= rect("Bottom") Or rect("Top") <= viewRect("Bottom"))
+End Function
+
+Private Function SelfTest_GetProjectionStandard(ByVal oDoc As DrawingDocument) As Boolean
+    On Error GoTo EH
+    SelfTest_GetProjectionStandard = oDoc.StylesManager.ActiveStandardStyle.FirstAngleProjection
+    Exit Function
+EH:
+    SelfTest_GetProjectionStandard = True
+End Function
+
+Private Function SelfTest_GetSheetSafeRectCm(ByVal oDoc As DrawingDocument) As Object
+    Dim oSheet As Sheet
+
+    Set oSheet = oDoc.ActiveSheet
+    Set SelfTest_GetSheetSafeRectCm = SelfTest_CreateRect( _
+        MmToCm(oDoc, FRAME_LEFT_MM), _
+        oSheet.Width - MmToCm(oDoc, FRAME_OTHER_MM), _
+        MmToCm(oDoc, FRAME_OTHER_MM), _
+        oSheet.Height - MmToCm(oDoc, FRAME_OTHER_MM))
+End Function
+
+Private Function SelfTest_GetFrontViewRectCm(ByVal oDoc As DrawingDocument, ByVal firstAngle As Boolean) As Object
+    Dim safeRect As Object
+    Dim splitX As Double
+    Dim splitY As Double
+    Dim padCm As Double
+
+    Set safeRect = SelfTest_InsetRect(SelfTest_GetSheetSafeRectCm(oDoc), MmToCm(oDoc, 6#))
+    padCm = MmToCm(oDoc, 8#)
+    splitX = safeRect("Right") - (safeRect("Right") - safeRect("Left")) * 0.34
+    splitY = safeRect("Top") - (safeRect("Top") - safeRect("Bottom")) * 0.36
+
+    If firstAngle Then
+        Set SelfTest_GetFrontViewRectCm = SelfTest_CreateRect(safeRect("Left"), splitX - padCm, splitY + padCm, safeRect("Top") - padCm)
+    Else
+        Set SelfTest_GetFrontViewRectCm = SelfTest_CreateRect(safeRect("Left"), splitX - padCm, safeRect("Bottom"), splitY - padCm)
+    End If
+End Function
+
+Private Function SelfTest_GetTopProjectedRectCm(ByVal oDoc As DrawingDocument, ByVal firstAngle As Boolean) As Object
+    Dim safeRect As Object
+    Dim splitX As Double
+    Dim splitY As Double
+    Dim padCm As Double
+
+    Set safeRect = SelfTest_InsetRect(SelfTest_GetSheetSafeRectCm(oDoc), MmToCm(oDoc, 6#))
+    padCm = MmToCm(oDoc, 8#)
+    splitX = safeRect("Right") - (safeRect("Right") - safeRect("Left")) * 0.34
+    splitY = safeRect("Top") - (safeRect("Top") - safeRect("Bottom")) * 0.36
+
+    If firstAngle Then
+        Set SelfTest_GetTopProjectedRectCm = SelfTest_CreateRect(safeRect("Left"), splitX - padCm, safeRect("Bottom"), splitY - padCm)
+    Else
+        Set SelfTest_GetTopProjectedRectCm = SelfTest_CreateRect(safeRect("Left"), splitX - padCm, splitY + padCm, safeRect("Top") - padCm)
+    End If
+End Function
+
+Private Function SelfTest_GetSideProjectedRectCm(ByVal oDoc As DrawingDocument, ByVal firstAngle As Boolean) As Object
+    Dim safeRect As Object
+    Dim frontRect As Object
+    Dim splitX As Double
+    Dim padCm As Double
+    Dim topLimit As Double
+    Dim bottomLimit As Double
+
+    Set safeRect = SelfTest_InsetRect(SelfTest_GetSheetSafeRectCm(oDoc), MmToCm(oDoc, 6#))
+    Set frontRect = SelfTest_GetFrontViewRectCm(oDoc, firstAngle)
+    padCm = MmToCm(oDoc, 8#)
+    splitX = safeRect("Right") - (safeRect("Right") - safeRect("Left")) * 0.34
+
+    bottomLimit = frontRect("Bottom")
+    topLimit = frontRect("Top")
+
+    If bottomLimit < safeRect("Bottom") Then bottomLimit = safeRect("Bottom")
+    If topLimit > safeRect("Top") Then topLimit = safeRect("Top")
+
+    Set SelfTest_GetSideProjectedRectCm = SelfTest_CreateRect(splitX + padCm, safeRect("Right") - padCm, bottomLimit, topLimit)
+End Function
+
+Private Function SelfTest_InsetRect(ByVal rect As Object, ByVal deltaCm As Double) As Object
+    Set SelfTest_InsetRect = SelfTest_CreateRect(rect("Left") + deltaCm, rect("Right") - deltaCm, rect("Bottom") + deltaCm, rect("Top") - deltaCm)
 End Function
