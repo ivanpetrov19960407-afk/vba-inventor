@@ -101,7 +101,7 @@ Private Sub ApplySpdsBorderToSheet(ByVal oSheet As Sheet, ByVal oDef As BorderDe
     If Not oSheet.Border Is Nothing Then oSheet.Border.Delete
     On Error GoTo 0
 
-    oSheet.AddBorder oDef
+    oSheet.AddCustomBorder oDef
 End Sub
 
 Private Sub DrawSpdsBorderGeometry(ByVal oSketch As DrawingSketch)

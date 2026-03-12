@@ -96,7 +96,8 @@ Public Function EnsureA3LandscapeSheet(ByVal oDoc As DrawingDocument) As Sheet
     If oSheet Is Nothing Then Exit Function
 
     On Error GoTo TryCreateSheet
-    oSheet.ChangeSize kA3DrawingSheetSize, kLandscapePageOrientation
+    oSheet.Size = kA3DrawingSheetSize
+    oSheet.Orientation = kLandscapePageOrientation
     oSheet.Activate
     On Error GoTo 0
 

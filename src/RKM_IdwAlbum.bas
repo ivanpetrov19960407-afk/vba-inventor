@@ -41,7 +41,8 @@ Public Sub Rkm_BuildOrUpdateIdwAlbum()
         If oSheet Is Nothing Then GoTo ContinueLoop
 
         oSheet.Activate
-        oSheet.ChangeSize kA3DrawingSheetSize, kLandscapePageOrientation
+        oSheet.Size = kA3DrawingSheetSize
+        oSheet.Orientation = kLandscapePageOrientation
 
         RemoveAllDrawingViews oSheet
         ApplyRkmBorderToSheet oSheet, borderDef
@@ -223,7 +224,7 @@ Private Function FindSheetByName(ByVal oDoc As DrawingDocument, ByVal sheetName 
     If oDoc Is Nothing Then Exit Function
 
     For i = 1 To oDoc.Sheets.Count
-        If StrComp(oDoc.Sheets.Item(i).Name, sheetName, vbTextCompare) = 0 Then
+        If StrComp(Split(oDoc.Sheets.Item(i).Name, ":")(0), sheetName, vbTextCompare) = 0 Then
             Set FindSheetByName = oDoc.Sheets.Item(i)
             Exit Function
         End If
@@ -250,7 +251,7 @@ Private Function IsSheetBackedByModel(ByVal sheetName As String, ByRef modelPath
     Dim i As Long
 
     For i = 1 To modelCount
-        If StrComp(sheetName, MakeAlbumSheetName(modelPaths(i)), vbTextCompare) = 0 Then
+        If StrComp(Split(sheetName, ":")(0), MakeAlbumSheetName(modelPaths(i)), vbTextCompare) = 0 Then
             IsSheetBackedByModel = True
             Exit Function
         End If
