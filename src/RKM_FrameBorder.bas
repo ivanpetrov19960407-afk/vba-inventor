@@ -51,7 +51,7 @@ Public Sub ApplyRkmBorderToSheet(ByVal oSheet As Sheet, ByVal oDef As BorderDefi
 
     ThisApplication.SilentOperation = True
     RemoveSheetBorder oSheet
-    Set newBorder = oSheet.AddBorder(oDef)
+    Set newBorder = oSheet.AddCustomBorder(oDef)
     ThisApplication.SilentOperation = False
 End Sub
 
