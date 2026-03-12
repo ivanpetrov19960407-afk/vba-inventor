@@ -25,6 +25,7 @@ Public Sub Rkm_BuildOrUpdateIdwAlbum()
 
     modelCount = CollectNumberedIptPaths(modelPaths)
     If modelCount = 0 Then
+        MsgBox "No numbered IPT files found in active project workspace.", vbExclamation
         Debug.Print "LOG: No numbered IPT files found in active project workspace."
         Exit Sub
     End If
@@ -443,6 +444,7 @@ Private Function TryAddProjectedView(ByVal oSheet As Sheet, ByVal baseView As Dr
 EH:
     ThisApplication.SilentOperation = False
     Call LogProjectedViewFailure(viewKind, firstAngle, "API error / On Error; Err=" & CStr(Err.Number) & "; " & Err.Description, targetRect, blockedRect, projView)
+    MsgBox "Projected view creation failed (" & UCase$(viewKind) & "): Err " & CStr(Err.Number) & " - " & Err.Description, vbExclamation
     On Error Resume Next
     If Not projView Is Nothing Then projView.Delete
     On Error GoTo 0

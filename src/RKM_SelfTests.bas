@@ -20,9 +20,10 @@ Public Sub Rkm_SelfTest_Create3ViewsOnActiveSheet()
     Set oSheet = oDoc.ActiveSheet
     If oSheet Is Nothing Then Exit Sub
 
-    Set oModelDoc = GetFirstReferencedModel(oDoc)
+    Set oModelDoc = GetFirstReferencedModelAnywhere(oDoc)
     If oModelDoc Is Nothing Then
-        Debug.Print "SELFTEST: no referenced model found on active drawing."
+        MsgBox "SELFTEST FAILED: no referenced model found on any sheet.", vbExclamation
+        Debug.Print "SELFTEST: no referenced model found on any sheet."
         Exit Sub
     End If
 
@@ -86,9 +87,10 @@ Public Sub Rkm_SelfTest_BaseViewOnly_OnActiveSheet()
     Set oSheet = oDoc.ActiveSheet
     If oSheet Is Nothing Then Exit Sub
 
-    Set oModelDoc = GetFirstReferencedModel(oDoc)
+    Set oModelDoc = GetFirstReferencedModelAnywhere(oDoc)
     If oModelDoc Is Nothing Then
-        Debug.Print "SELFTEST BASEVIEW: no referenced model found on active drawing."
+        MsgBox "BASEVIEW FAILED: no referenced model found on any sheet.", vbExclamation
+        Debug.Print "SELFTEST BASEVIEW: no referenced model found on any sheet."
         Exit Sub
     End If
 
@@ -150,20 +152,24 @@ Private Sub SelfTest_PrintSheetViews(ByVal oSheet As Sheet)
     Debug.Print "SELFTEST: view list end"
 End Sub
 
-Private Function GetFirstReferencedModel(ByVal oDoc As DrawingDocument) As Document
-    Dim i As Long
+Private Function GetFirstReferencedModelAnywhere(ByVal oDoc As DrawingDocument) As Document
+    Dim sheetIndex As Long
+    Dim viewIndex As Long
+    Dim oSheet As Sheet
     Dim oView As DrawingView
 
     If oDoc Is Nothing Then Exit Function
-    If oDoc.ActiveSheet Is Nothing Then Exit Function
 
-    For i = 1 To oDoc.ActiveSheet.DrawingViews.Count
-        Set oView = oDoc.ActiveSheet.DrawingViews.Item(i)
-        On Error Resume Next
-        Set GetFirstReferencedModel = oView.ReferencedDocumentDescriptor.ReferencedDocument
-        On Error GoTo 0
-        If Not GetFirstReferencedModel Is Nothing Then Exit Function
-    Next i
+    For sheetIndex = 1 To oDoc.Sheets.Count
+        Set oSheet = oDoc.Sheets.Item(sheetIndex)
+        For viewIndex = 1 To oSheet.DrawingViews.Count
+            Set oView = oSheet.DrawingViews.Item(viewIndex)
+            On Error Resume Next
+            Set GetFirstReferencedModelAnywhere = oView.ReferencedDocumentDescriptor.ReferencedDocument
+            On Error GoTo 0
+            If Not GetFirstReferencedModelAnywhere Is Nothing Then Exit Function
+        Next viewIndex
+    Next sheetIndex
 End Function
 
 Private Sub RemoveAllDrawingViewsFromSheet(ByVal oSheet As Sheet)
