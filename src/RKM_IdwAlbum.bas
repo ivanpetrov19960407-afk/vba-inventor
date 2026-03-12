@@ -11,6 +11,8 @@ Private Const TOP_ROW_RATIO As Double = 0.36
 Private Const SIDE_COL_RATIO As Double = 0.34
 Private Const LABEL_OFFSET_MM As Double = 4#
 Private Const LABEL_MARGIN_MM As Double = 2#
+Private Const PROJ_ROLE_TOP As Long = 1
+Private Const PROJ_ROLE_SIDE As Long = 2
 
 Public Sub Rkm_BuildOrUpdateIdwAlbum()
     Dim oDoc As DrawingDocument
@@ -229,9 +231,9 @@ Public Sub BuildSheetViews_Orthographic3(ByVal oDoc As DrawingDocument, ByVal oS
     firstAngle = GetProjectionStandard(oDoc)
 
     Set blockedRect = GetTitleBlockBlockedRectCm(oDoc)
-    Set frontRect = GetFrontViewRectCm(oDoc)
-    Set sideRect = GetSideProjectedRectCm(oDoc)
-    Set topRect = GetTopProjectedRectCm(oDoc)
+    Set frontRect = GetFrontViewRectCm(oDoc, firstAngle)
+    Set sideRect = GetSideProjectedRectCm(oDoc, firstAngle)
+    Set topRect = GetTopProjectedRectCm(oDoc, firstAngle)
 
     selectedScale = FindBestScaleFor3Views(oSheet, oModelDoc, scaleCandidates, frontRect, topRect, sideRect, blockedRect, firstAngle)
     ok = PlaceOrthographic3Views(oSheet, oModelDoc, selectedScale, frontRect, topRect, sideRect, blockedRect, firstAngle)
@@ -276,8 +278,8 @@ Private Function ProbeOrthographic3Layout(ByVal oSheet As Sheet, ByVal oModelDoc
 
     baseView.Center = Pt(RectCenterX(frontRect), RectCenterY(frontRect))
     If DoesViewFitRect(baseView, frontRect) And (Not IsViewIntersectingBlockedArea(baseView, blockedRect)) Then
-        Set topView = TryAddProjectedByOrientation(oSheet, baseView, topRect, blockedRect, kAboveViewOrientation, firstAngle)
-        Set sideView = TryAddProjectedByOrientation(oSheet, baseView, sideRect, blockedRect, kRightViewOrientation, firstAngle)
+        Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, PROJ_ROLE_TOP, firstAngle)
+        Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, PROJ_ROLE_SIDE, firstAngle)
 
         ProbeOrthographic3Layout = (Not topView Is Nothing) And (Not sideView Is Nothing)
     End If
@@ -306,8 +308,8 @@ Private Function PlaceOrthographic3Views(ByVal oSheet As Sheet, ByVal oModelDoc 
         Exit Function
     End If
 
-    Set topView = TryAddProjectedByOrientation(oSheet, baseView, topRect, blockedRect, kAboveViewOrientation, firstAngle)
-    Set sideView = TryAddProjectedByOrientation(oSheet, baseView, sideRect, blockedRect, kRightViewOrientation, firstAngle)
+    Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, PROJ_ROLE_TOP, firstAngle)
+    Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, PROJ_ROLE_SIDE, firstAngle)
 
     If topView Is Nothing Or sideView Is Nothing Then
         On Error Resume Next
@@ -346,26 +348,16 @@ EH:
     Set TryCreateBaseView = Nothing
 End Function
 
-Private Function TryAddProjectedByOrientation(ByVal oSheet As Sheet, ByVal baseView As DrawingView, ByVal targetRect As Object, _
-                                              ByVal blockedRect As Object, ByVal orientation As DrawingViewOrientationEnum, _
-                                              ByVal firstAngle As Boolean) As DrawingView
+Private Function TryAddProjectedView(ByVal oSheet As Sheet, ByVal baseView As DrawingView, ByVal targetRect As Object, _
+                                     ByVal blockedRect As Object, ByVal projRole As Long, _
+                                     ByVal firstAngle As Boolean) As DrawingView
     Dim projView As DrawingView
     Dim targetPt As Point2d
-    Dim projectedOrientation As DrawingViewOrientationEnum
 
     On Error GoTo EH
 
-    projectedOrientation = orientation
-    If orientation = kRightViewOrientation Then
-        If firstAngle Then
-            projectedOrientation = kLeftViewOrientation
-        Else
-            projectedOrientation = kRightViewOrientation
-        End If
-    End If
-    Set targetPt = Pt(RectCenterX(targetRect), RectCenterY(targetRect))
-
-    Set projView = oSheet.DrawingViews.AddProjectedView(baseView, targetPt, kHiddenLineRemovedDrawingViewStyle, projectedOrientation)
+    Set targetPt = BuildProjectedTargetPoint(baseView, targetRect, projRole, firstAngle)
+    Set projView = oSheet.DrawingViews.AddProjectedView(baseView, targetPt, kHiddenLineRemovedDrawingViewStyle)
     If projView Is Nothing Then Exit Function
 
     If Not DoesViewFitRect(projView, targetRect) Then
@@ -379,7 +371,7 @@ Private Function TryAddProjectedByOrientation(ByVal oSheet As Sheet, ByVal baseV
         Set projView = Nothing
     End If
 
-    Set TryAddProjectedByOrientation = projView
+    Set TryAddProjectedView = projView
     Exit Function
 EH:
     ThisApplication.SilentOperation = False
@@ -387,7 +379,38 @@ EH:
     On Error Resume Next
     If Not projView Is Nothing Then projView.Delete
     On Error GoTo 0
-    Set TryAddProjectedByOrientation = Nothing
+    Set TryAddProjectedView = Nothing
+End Function
+
+Private Function BuildProjectedTargetPoint(ByVal baseView As DrawingView, ByVal targetRect As Object, _
+                                           ByVal projRole As Long, ByVal firstAngle As Boolean) As Point2d
+    Dim targetX As Double
+    Dim targetY As Double
+    Dim baseX As Double
+    Dim baseY As Double
+
+    baseX = baseView.Center.X
+    baseY = baseView.Center.Y
+    targetX = RectCenterX(targetRect)
+    targetY = RectCenterY(targetRect)
+
+    Select Case projRole
+        Case PROJ_ROLE_TOP
+            targetX = baseX
+            If firstAngle Then
+                targetY = targetRect("Bottom") + RectHeight(targetRect) / 2#
+                If targetY >= baseY Then targetY = baseY - 0.01
+            Else
+                targetY = targetRect("Bottom") + RectHeight(targetRect) / 2#
+                If targetY <= baseY Then targetY = baseY + 0.01
+            End If
+        Case PROJ_ROLE_SIDE
+            targetY = baseY
+            targetX = targetRect("Left") + RectWidth(targetRect) / 2#
+            If targetX <= baseX Then targetX = baseX + 0.01
+    End Select
+
+    Set BuildProjectedTargetPoint = Pt(targetX, targetY)
 End Function
 
 Private Sub ApplyViewLabel(ByVal oView As DrawingView, ByVal caption As String)
@@ -449,7 +472,7 @@ Private Function GetTitleBlockBlockedRectCm(ByVal oDoc As DrawingDocument) As Ob
         bottomEdge + MmToCm(oDoc, BLOCKED_H_MM))
 End Function
 
-Private Function GetFrontViewRectCm(ByVal oDoc As DrawingDocument) As Object
+Private Function GetFrontViewRectCm(ByVal oDoc As DrawingDocument, ByVal firstAngle As Boolean) As Object
     Dim safeRect As Object
     Dim splitX As Double
     Dim splitY As Double
@@ -460,10 +483,14 @@ Private Function GetFrontViewRectCm(ByVal oDoc As DrawingDocument) As Object
     splitX = safeRect("Right") - RectWidth(safeRect) * SIDE_COL_RATIO
     splitY = safeRect("Top") - RectHeight(safeRect) * TOP_ROW_RATIO
 
-    Set GetFrontViewRectCm = CreateRect(safeRect("Left"), splitX - padCm, safeRect("Bottom"), splitY - padCm)
+    If firstAngle Then
+        Set GetFrontViewRectCm = CreateRect(safeRect("Left"), splitX - padCm, splitY + padCm, safeRect("Top") - padCm)
+    Else
+        Set GetFrontViewRectCm = CreateRect(safeRect("Left"), splitX - padCm, safeRect("Bottom"), splitY - padCm)
+    End If
 End Function
 
-Private Function GetTopProjectedRectCm(ByVal oDoc As DrawingDocument) As Object
+Private Function GetTopProjectedRectCm(ByVal oDoc As DrawingDocument, ByVal firstAngle As Boolean) As Object
     Dim safeRect As Object
     Dim splitX As Double
     Dim splitY As Double
@@ -474,10 +501,14 @@ Private Function GetTopProjectedRectCm(ByVal oDoc As DrawingDocument) As Object
     splitX = safeRect("Right") - RectWidth(safeRect) * SIDE_COL_RATIO
     splitY = safeRect("Top") - RectHeight(safeRect) * TOP_ROW_RATIO
 
-    Set GetTopProjectedRectCm = CreateRect(safeRect("Left"), splitX - padCm, splitY + padCm, safeRect("Top") - padCm)
+    If firstAngle Then
+        Set GetTopProjectedRectCm = CreateRect(safeRect("Left"), splitX - padCm, safeRect("Bottom"), splitY - padCm)
+    Else
+        Set GetTopProjectedRectCm = CreateRect(safeRect("Left"), splitX - padCm, splitY + padCm, safeRect("Top") - padCm)
+    End If
 End Function
 
-Private Function GetSideProjectedRectCm(ByVal oDoc As DrawingDocument) As Object
+Private Function GetSideProjectedRectCm(ByVal oDoc As DrawingDocument, ByVal firstAngle As Boolean) As Object
     Dim safeRect As Object
     Dim blockedRect As Object
     Dim splitX As Double
@@ -491,8 +522,13 @@ Private Function GetSideProjectedRectCm(ByVal oDoc As DrawingDocument) As Object
     padCm = MmToCm(oDoc, GAP_MM)
     splitX = safeRect("Right") - RectWidth(safeRect) * SIDE_COL_RATIO
     splitY = safeRect("Top") - RectHeight(safeRect) * TOP_ROW_RATIO
-    bottomLimit = blockedRect("Top") + padCm
-    topLimit = splitY - padCm
+    If firstAngle Then
+        bottomLimit = splitY + padCm
+        topLimit = safeRect("Top") - padCm
+    Else
+        bottomLimit = blockedRect("Top") + padCm
+        topLimit = splitY - padCm
+    End If
 
     If bottomLimit < safeRect("Bottom") Then bottomLimit = safeRect("Bottom")
     If topLimit > safeRect("Top") Then topLimit = safeRect("Top")

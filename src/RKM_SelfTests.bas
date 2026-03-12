@@ -26,7 +26,7 @@ Public Sub Rkm_SelfTest_Create3ViewsOnActiveSheet()
     BuildSheetViews_Orthographic3 oDoc, oSheet, oModelDoc, Nothing
 
     Debug.Print "SELFTEST: views on active sheet = " & CStr(oSheet.DrawingViews.Count)
-    Debug.Assert oSheet.DrawingViews.Count >= 3
+    Debug.Assert oSheet.DrawingViews.Count = 3
 
     Set blockedRect = SelfTest_GetTitleBlockBlockedRectCm(oDoc)
     collisions = 0
@@ -37,6 +37,7 @@ Public Sub Rkm_SelfTest_Create3ViewsOnActiveSheet()
             collisions = collisions + 1
             Debug.Print "SELFTEST: blocked area collision; view=" & oView.Name
         End If
+        Debug.Assert Not SelfTest_ViewIntersectsRect(oView, blockedRect)
     Next i
 
     Debug.Print "SELFTEST: blocked collisions = " & CStr(collisions)
