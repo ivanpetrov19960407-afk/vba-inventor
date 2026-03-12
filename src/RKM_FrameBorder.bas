@@ -17,7 +17,10 @@ Public Function EnsureRkmBorderDefinition(ByVal oDoc As DrawingDocument) As Bord
 
     Set oDef = BorderDefinitionByName(oDoc, targetName)
     If oDef Is Nothing Then
+        On Error GoTo EH
+        ThisApplication.SilentOperation = True
         Set oDef = oDoc.BorderDefinitions.Add(targetName)
+        ThisApplication.SilentOperation = False
     End If
 
     oDef.Edit oSketch
@@ -32,6 +35,7 @@ Public Function EnsureRkmBorderDefinition(ByVal oDoc As DrawingDocument) As Bord
     Set EnsureRkmBorderDefinition = oDef
     Exit Function
 EH:
+    ThisApplication.SilentOperation = False
     If isEditing Then
         On Error Resume Next
         oDef.ExitEdit False
@@ -44,8 +48,11 @@ Public Sub ApplyRkmBorderToSheet(ByVal oSheet As Sheet, ByVal oDef As BorderDefi
     Dim newBorder As Border
 
     If oSheet Is Nothing Or oDef Is Nothing Then Exit Sub
+
+    ThisApplication.SilentOperation = True
     RemoveSheetBorder oSheet
     Set newBorder = oSheet.AddBorder(oDef)
+    ThisApplication.SilentOperation = False
 End Sub
 
 Private Sub DrawSpdsInnerFrame(ByVal oDoc As DrawingDocument, ByVal oSketch As DrawingSketch)

@@ -55,7 +55,7 @@ Public Function CanEditDrawingResources(ByVal oApp As Inventor.Application) As B
     If Not eo Is Nothing Then
         If TypeOf eo Is DrawingSketch Or TypeOf eo Is Sketch Then
             Debug.Print "ActiveEditObject=" & TypeName(eo)
-            MsgBox "Finish active sketch/resource edit before running macro.", vbExclamation
+            Debug.Print "LOG: Finish active sketch/resource edit before running macro."
             Exit Function
         End If
     End If
@@ -76,12 +76,12 @@ End Sub
 Public Function GetActiveDrawingDocument(ByVal oApp As Inventor.Application) As DrawingDocument
     If oApp Is Nothing Then Exit Function
     If oApp.ActiveDocument Is Nothing Then
-        MsgBox "Open a drawing document first.", vbExclamation
+        Debug.Print "LOG: Open a drawing document first."
         Exit Function
     End If
 
     If oApp.ActiveDocument.DocumentType <> kDrawingDocumentObject Then
-        MsgBox "Active document is not a drawing.", vbExclamation
+        Debug.Print "LOG: Active document is not a drawing."
         Exit Function
     End If
 
@@ -95,28 +95,27 @@ Public Function EnsureA3LandscapeSheet(ByVal oDoc As DrawingDocument) As Sheet
     Set oSheet = oDoc.ActiveSheet
     If oSheet Is Nothing Then Exit Function
 
-    On Error GoTo TryCreateSheet
+    On Error Resume Next
     oSheet.Size = kA3DrawingSheetSize
+    If Err.Number <> 0 Then
+        Debug.Print "LOG: Failed to set sheet size to A3 for sheet '" & oSheet.Name & "': " & Err.Description
+        Err.Clear
+    End If
+
     oSheet.Orientation = kLandscapePageOrientation
+    If Err.Number <> 0 Then
+        Debug.Print "LOG: Failed to set sheet orientation to Landscape for sheet '" & oSheet.Name & "': " & Err.Description
+        Err.Clear
+    End If
+
     oSheet.Activate
+    If Err.Number <> 0 Then
+        Debug.Print "LOG: Failed to activate sheet '" & oSheet.Name & "': " & Err.Description
+        Err.Clear
+    End If
     On Error GoTo 0
 
     Set EnsureA3LandscapeSheet = oSheet
-    Exit Function
-
-TryCreateSheet:
-    On Error GoTo ResizeFailed
-    Err.Clear
-    Set oSheet = oDoc.Sheets.Add(kA3DrawingSheetSize, kLandscapePageOrientation)
-    oSheet.Activate
-    On Error GoTo 0
-
-    Set EnsureA3LandscapeSheet = oSheet
-    Exit Function
-
-ResizeFailed:
-    On Error GoTo 0
-    MsgBox "Could not set or create A3 Landscape sheet.", vbCritical
 End Function
 
 Public Function ValidateSpdsA3Sheet(ByVal oDoc As DrawingDocument, ByVal oSheet As Sheet) As Boolean
@@ -132,9 +131,7 @@ Public Function ValidateSpdsA3Sheet(ByVal oDoc As DrawingDocument, ByVal oSheet 
     heightMm = CmToMm(oDoc, oSheet.Height)
 
     If Abs(widthMm - A3_WIDTH_MM) > DIM_TOLERANCE_MM Or Abs(heightMm - A3_HEIGHT_MM) > DIM_TOLERANCE_MM Then
-        MsgBox "Active sheet is not A3 landscape after resize/create." & vbCrLf & _
-               "Expected (mm): 420 x 297" & vbCrLf & _
-               "Actual (mm): " & FormatNumber(widthMm, 2) & " x " & FormatNumber(heightMm, 2), vbCritical
+        Debug.Print "LOG: Active sheet is not A3 landscape after resize/create. Expected (mm): 420 x 297. Actual (mm): " & FormatNumber(widthMm, 2) & " x " & FormatNumber(heightMm, 2)
         Exit Function
     End If
 

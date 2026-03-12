@@ -22,7 +22,9 @@ Public Function EnsureRkmTitleBlockDefinition(ByVal oDoc As DrawingDocument) As 
 
     Set oDef = TitleBlockDefinitionByName(oDoc, targetName)
     If oDef Is Nothing Then
+        ThisApplication.SilentOperation = True
         Set oDef = oDoc.TitleBlockDefinitions.Add(targetName)
+        ThisApplication.SilentOperation = False
     End If
 
     oDef.Edit oSketch
@@ -39,6 +41,7 @@ Public Function EnsureRkmTitleBlockDefinition(ByVal oDoc As DrawingDocument) As 
     Exit Function
 
 EH:
+    ThisApplication.SilentOperation = False
     If isEditing Then
         On Error Resume Next
         oDef.ExitEdit False
@@ -51,7 +54,9 @@ Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleB
     On Error GoTo AddTitleBlockFailed
 
     If oSheet Is Nothing Or oDef Is Nothing Then Exit Sub
+    ThisApplication.SilentOperation = True
     RemoveSheetTitleBlock oSheet
+    ThisApplication.SilentOperation = False
 
     Dim sPrompts(1 To 7) As String
     sPrompts(1) = RuText(48, 48, 48, 45, 50, 48, 50, 54, 45, 1040, 1056)
@@ -63,10 +68,13 @@ Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleB
     sPrompts(7) = "10"
 
     Dim newTitleBlock As TitleBlock
+    ThisApplication.SilentOperation = True
     Set newTitleBlock = oSheet.AddTitleBlock(oDef, , sPrompts)
+    ThisApplication.SilentOperation = False
     Exit Sub
 
 AddTitleBlockFailed:
+    ThisApplication.SilentOperation = False
     MsgBox RuText(1054, 1096, 1080, 1073, 1082, 1072, 32, 1074, 1089, 1090, 1072, 1074, 1082, 1080, 32, 1096, 1090, 1072, 1084, 1087, 1072, 58, 32) & Err.Description, vbExclamation
 End Sub
 
