@@ -275,19 +275,19 @@ Private Function ProbeOrthographic3Layout(ByVal oSheet As Sheet, ByVal oModelDoc
     Dim baseView As DrawingView
     Dim topView As DrawingView
     Dim sideView As DrawingView
+    Dim selectedBaseScale As Double
 
     ProbeOrthographic3Layout = False
 
-    Set baseView = TryCreateBaseView(oSheet, oModelDoc, scaleValue)
+    selectedBaseScale = FindBestScaleForBaseView(oSheet, oModelDoc, scaleValue, frontRect, blockedRect, baseView)
     If baseView Is Nothing Then Exit Function
 
-    baseView.Center = Pt(RectCenterX(frontRect), RectCenterY(frontRect))
-    If DoesViewFitRect(baseView, frontRect) And (Not IsViewIntersectingBlockedArea(baseView, blockedRect)) Then
-        Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, BuildTopTargetPoint(baseView, topRect, firstAngle), "TOP", firstAngle)
-        Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, BuildSideTargetPoint(baseView, sideRect), "SIDE", firstAngle)
+    Debug.Print "LOG: probe selected base scale=" & CStr(selectedBaseScale)
 
-        ProbeOrthographic3Layout = (Not topView Is Nothing) And (Not sideView Is Nothing)
-    End If
+    Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, BuildTopTargetPoint(baseView, topRect, firstAngle), "TOP", firstAngle)
+    Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, BuildSideTargetPoint(baseView, sideRect), "SIDE", firstAngle)
+
+    ProbeOrthographic3Layout = (Not topView Is Nothing) And (Not sideView Is Nothing)
 
     On Error Resume Next
     If Not sideView Is Nothing Then sideView.Delete
@@ -303,39 +303,15 @@ Private Function PlaceOrthographic3Views(ByVal oSheet As Sheet, ByVal oModelDoc 
     Dim topView As DrawingView
     Dim sideView As DrawingView
     Dim sideCaption As String
+    Dim selectedBaseScale As Double
 
-    Set baseView = TryCreateBaseView(oSheet, oModelDoc, scaleValue)
+    selectedBaseScale = FindBestScaleForBaseView(oSheet, oModelDoc, scaleValue, frontRect, blockedRect, baseView)
     If baseView Is Nothing Then
-        Debug.Print "LOG: base view is Nothing"
+        Debug.Print "LOG: base view is Nothing after scale fitting; requestedScale=" & CStr(scaleValue)
         Exit Function
     End If
 
-    baseView.Center = Pt(RectCenterX(frontRect), RectCenterY(frontRect))
-    If Not DoesViewFitRect(baseView, frontRect) Then
-        Debug.Print "LOG: base view rejected; reason=frontRect fit failed" & _
-                    "; scale=" & CStr(scaleValue) & _
-                    "; model=" & oModelDoc.DisplayName & _
-                    "; modelPath=" & oModelDoc.FullFileName & _
-                    "; firstAngle=" & CStr(firstAngle) & _
-                    "; frontRect(" & RectToLogText(frontRect) & ")" & _
-                    "; blockedRect(" & RectToLogText(blockedRect) & ")" & _
-                    "; baseView(" & ViewToLogText(baseView) & ")"
-        baseView.Delete
-        Exit Function
-    End If
-
-    If IsViewIntersectingBlockedArea(baseView, blockedRect) Then
-        Debug.Print "LOG: base view rejected; reason=blockedRect intersection" & _
-                    "; scale=" & CStr(scaleValue) & _
-                    "; model=" & oModelDoc.DisplayName & _
-                    "; modelPath=" & oModelDoc.FullFileName & _
-                    "; firstAngle=" & CStr(firstAngle) & _
-                    "; frontRect(" & RectToLogText(frontRect) & ")" & _
-                    "; blockedRect(" & RectToLogText(blockedRect) & ")" & _
-                    "; baseView(" & ViewToLogText(baseView) & ")"
-        baseView.Delete
-        Exit Function
-    End If
+    Debug.Print "LOG: place selected base scale=" & CStr(selectedBaseScale)
 
     Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, BuildTopTargetPoint(baseView, topRect, firstAngle), "TOP", firstAngle)
     Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, BuildSideTargetPoint(baseView, sideRect), "SIDE", firstAngle)
@@ -366,6 +342,75 @@ Private Function PlaceOrthographic3Views(ByVal oSheet As Sheet, ByVal oModelDoc 
 
     ApplyViewLabel sideView, sideCaption
     PlaceOrthographic3Views = True
+End Function
+
+Private Function FindBestScaleForBaseView(ByVal oSheet As Sheet, ByVal oModelDoc As Document, ByVal initialScale As Double, _
+                                          ByVal frontRect As Object, ByVal blockedRect As Object, ByRef outBaseView As DrawingView) As Double
+    Const SCALE_FIT_MARGIN As Double = 0.95
+    Const MIN_BASE_SCALE As Double = 0.05
+    Dim currentScale As Double
+    Dim recalculatedScale As Double
+    Dim fitScaleX As Double
+    Dim fitScaleY As Double
+    Dim frontRectWidth As Double
+    Dim frontRectHeight As Double
+    Dim baseViewWidth As Double
+    Dim baseViewHeight As Double
+    Dim fitsFront As Boolean
+    Dim intersectsBlocked As Boolean
+    Dim localBaseView As DrawingView
+
+    Set outBaseView = Nothing
+    currentScale = initialScale
+    frontRectWidth = RectWidth(frontRect)
+    frontRectHeight = RectHeight(frontRect)
+
+    Debug.Print "LOG: base scale fitting start; initialScale=" & CStr(initialScale) & _
+                "; frontRectWidth=" & CStr(frontRectWidth) & "; frontRectHeight=" & CStr(frontRectHeight)
+
+    Do While currentScale >= MIN_BASE_SCALE
+        Set localBaseView = TryCreateBaseView(oSheet, oModelDoc, currentScale)
+        If localBaseView Is Nothing Then Exit Do
+
+        localBaseView.Center = Pt(RectCenterX(frontRect), RectCenterY(frontRect))
+        baseViewWidth = localBaseView.Width
+        baseViewHeight = localBaseView.Height
+        fitsFront = DoesViewFitRect(localBaseView, frontRect)
+        intersectsBlocked = IsViewIntersectingBlockedArea(localBaseView, blockedRect)
+
+        fitScaleX = currentScale
+        fitScaleY = currentScale
+        If baseViewWidth > 0# Then fitScaleX = currentScale * (frontRectWidth / baseViewWidth) * SCALE_FIT_MARGIN
+        If baseViewHeight > 0# Then fitScaleY = currentScale * (frontRectHeight / baseViewHeight) * SCALE_FIT_MARGIN
+        recalculatedScale = fitScaleX
+        If fitScaleY < recalculatedScale Then recalculatedScale = fitScaleY
+
+        Debug.Print "LOG: base scale fitting trial; originalScale=" & CStr(currentScale) & _
+                    "; recalculatedScale=" & CStr(recalculatedScale) & _
+                    "; frontRectWidth=" & CStr(frontRectWidth) & "; frontRectHeight=" & CStr(frontRectHeight) & _
+                    "; baseViewWidth=" & CStr(baseViewWidth) & "; baseViewHeight=" & CStr(baseViewHeight) & _
+                    "; fitsFront=" & CStr(fitsFront) & "; blocked=" & CStr(intersectsBlocked)
+
+        If fitsFront And (Not intersectsBlocked) Then
+            Set outBaseView = localBaseView
+            FindBestScaleForBaseView = currentScale
+            Debug.Print "LOG: base scale fitting done; selectedScale=" & CStr(FindBestScaleForBaseView)
+            Exit Function
+        End If
+
+        If recalculatedScale >= currentScale Then recalculatedScale = currentScale * SCALE_FIT_MARGIN
+        If recalculatedScale < MIN_BASE_SCALE Then
+            localBaseView.Delete
+            Exit Do
+        End If
+
+        localBaseView.Delete
+        Set localBaseView = Nothing
+        currentScale = recalculatedScale
+    Loop
+
+    Debug.Print "LOG: base scale fitting failed; selectedScale=0"
+    FindBestScaleForBaseView = 0#
 End Function
 
 Private Function TryCreateBaseView(ByVal oSheet As Sheet, ByVal oModelDoc As Document, ByVal scaleValue As Double) As DrawingView
