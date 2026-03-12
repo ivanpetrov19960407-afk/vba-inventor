@@ -233,6 +233,12 @@ Public Sub BuildSheetViews_Orthographic3(ByVal oDoc As DrawingDocument, ByVal oS
     Set sideRect = GetSideProjectedRectCm(oDoc, firstAngle)
     Set topRect = GetTopProjectedRectCm(oDoc, firstAngle)
 
+    Debug.Print "LOG: orthographic layout inputs; firstAngle=" & CStr(firstAngle) & _
+                "; frontRect(" & RectToLogText(frontRect) & ")" & _
+                "; topRect(" & RectToLogText(topRect) & ")" & _
+                "; sideRect(" & RectToLogText(sideRect) & ")" & _
+                "; blockedRect(" & RectToLogText(blockedRect) & ")"
+
     selectedScale = FindBestScaleFor3Views(oSheet, oModelDoc, scaleCandidates, frontRect, topRect, sideRect, blockedRect, firstAngle)
     ok = PlaceOrthographic3Views(oSheet, oModelDoc, selectedScale, frontRect, topRect, sideRect, blockedRect, firstAngle)
 
@@ -276,8 +282,8 @@ Private Function ProbeOrthographic3Layout(ByVal oSheet As Sheet, ByVal oModelDoc
 
     baseView.Center = Pt(RectCenterX(frontRect), RectCenterY(frontRect))
     If DoesViewFitRect(baseView, frontRect) And (Not IsViewIntersectingBlockedArea(baseView, blockedRect)) Then
-        Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, BuildTopTargetPoint(baseView, topRect, firstAngle))
-        Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, BuildSideTargetPoint(baseView, sideRect))
+        Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, BuildTopTargetPoint(baseView, topRect, firstAngle), "TOP", firstAngle)
+        Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, BuildSideTargetPoint(baseView, sideRect), "SIDE", firstAngle)
 
         ProbeOrthographic3Layout = (Not topView Is Nothing) And (Not sideView Is Nothing)
     End If
@@ -306,10 +312,16 @@ Private Function PlaceOrthographic3Views(ByVal oSheet As Sheet, ByVal oModelDoc 
         Exit Function
     End If
 
-    Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, BuildTopTargetPoint(baseView, topRect, firstAngle))
-    Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, BuildSideTargetPoint(baseView, sideRect))
+    Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, BuildTopTargetPoint(baseView, topRect, firstAngle), "TOP", firstAngle)
+    Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, BuildSideTargetPoint(baseView, sideRect), "SIDE", firstAngle)
 
     If topView Is Nothing Or sideView Is Nothing Then
+        If Not topView Is Nothing Then
+            Call LogProjectedViewFailure("TOP", firstAngle, "deleted because paired orthographic view is missing", topRect, blockedRect, topView)
+        End If
+        If Not sideView Is Nothing Then
+            Call LogProjectedViewFailure("SIDE", firstAngle, "deleted because paired orthographic view is missing", sideRect, blockedRect, sideView)
+        End If
         On Error Resume Next
         If Not sideView Is Nothing Then sideView.Delete
         If Not topView Is Nothing Then topView.Delete
@@ -346,22 +358,52 @@ EH:
     Set TryCreateBaseView = Nothing
 End Function
 
+Private Function RectToLogText(ByVal rect As Object) As String
+    If rect Is Nothing Then
+        RectToLogText = "<none>"
+    Else
+        RectToLogText = "L=" & CStr(rect("Left")) & ", R=" & CStr(rect("Right")) & ", B=" & CStr(rect("Bottom")) & ", T=" & CStr(rect("Top"))
+    End If
+End Function
+
+Private Function ViewToLogText(ByVal oView As DrawingView) As String
+    If oView Is Nothing Then
+        ViewToLogText = "<none>"
+    Else
+        ViewToLogText = "Left=" & CStr(oView.Left) & ", Top=" & CStr(oView.Top) & ", Width=" & CStr(oView.Width) & ", Height=" & CStr(oView.Height)
+    End If
+End Function
+
+Private Sub LogProjectedViewFailure(ByVal viewKind As String, ByVal firstAngle As Boolean, ByVal reasonText As String, _
+                                    ByVal targetRect As Object, ByVal blockedRect As Object, ByVal projView As DrawingView)
+    Debug.Print "LOG: projected view dropped; kind=" & UCase$(viewKind) & "; reason=" & reasonText & _
+                "; firstAngle=" & CStr(firstAngle) & "; targetRect(" & RectToLogText(targetRect) & ")" & _
+                "; view(" & ViewToLogText(projView) & ")" & _
+                "; blockedRect(" & RectToLogText(blockedRect) & ")"
+End Sub
+
 Private Function TryAddProjectedView(ByVal oSheet As Sheet, ByVal baseView As DrawingView, ByVal targetRect As Object, _
-                                     ByVal blockedRect As Object, ByVal targetPt As Point2d) As DrawingView
+                                     ByVal blockedRect As Object, ByVal targetPt As Point2d, ByVal viewKind As String, _
+                                     ByVal firstAngle As Boolean) As DrawingView
     Dim projView As DrawingView
 
     On Error GoTo EH
 
     Set projView = oSheet.DrawingViews.AddProjectedView(baseView, targetPt, kHiddenLineRemovedDrawingViewStyle)
-    If projView Is Nothing Then Exit Function
+    If projView Is Nothing Then
+        Call LogProjectedViewFailure(viewKind, firstAngle, "AddProjectedView returned Nothing", targetRect, blockedRect, projView)
+        Exit Function
+    End If
 
     If Not DoesViewFitRect(projView, targetRect) Then
+        Call LogProjectedViewFailure(viewKind, firstAngle, "view outside targetRect", targetRect, blockedRect, projView)
         projView.Delete
         Set projView = Nothing
         Exit Function
     End If
 
     If IsViewIntersectingBlockedArea(projView, blockedRect) Then
+        Call LogProjectedViewFailure(viewKind, firstAngle, "intersects blockedRect", targetRect, blockedRect, projView)
         projView.Delete
         Set projView = Nothing
     End If
@@ -370,7 +412,7 @@ Private Function TryAddProjectedView(ByVal oSheet As Sheet, ByVal baseView As Dr
     Exit Function
 EH:
     ThisApplication.SilentOperation = False
-    Debug.Print "LOG: AddProjectedView failed; sheet=" & SafeSheetName(oSheet) & "; Err=" & Err.Number & "; " & Err.Description
+    Call LogProjectedViewFailure(viewKind, firstAngle, "API error / On Error; Err=" & CStr(Err.Number) & "; " & Err.Description, targetRect, blockedRect, projView)
     On Error Resume Next
     If Not projView Is Nothing Then projView.Delete
     On Error GoTo 0

@@ -39,7 +39,7 @@ Public Sub Rkm_SelfTest_Create3ViewsOnActiveSheet()
     BuildSheetViews_Orthographic3 oDoc, oSheet, oModelDoc, Nothing
 
     Debug.Print "SELFTEST: views on active sheet = " & CStr(oSheet.DrawingViews.Count)
-    Debug.Assert oSheet.DrawingViews.Count = 3
+    Call SelfTest_PrintSheetViews(oSheet)
 
     Set blockedRect = SelfTest_GetTitleBlockBlockedRectCm(oDoc)
     collisions = 0
@@ -50,11 +50,38 @@ Public Sub Rkm_SelfTest_Create3ViewsOnActiveSheet()
             collisions = collisions + 1
             Debug.Print "SELFTEST: blocked area collision; view=" & oView.Name
         End If
-        Debug.Assert Not SelfTest_ViewIntersectsRect(oView, blockedRect)
     Next i
 
     Debug.Print "SELFTEST: blocked collisions = " & CStr(collisions)
-    Debug.Assert collisions = 0
+
+    If oSheet.DrawingViews.Count <> 3 Then
+        MsgBox "SELFTEST FAILED: expected 3 views, actual = " & CStr(oSheet.DrawingViews.Count), vbExclamation
+        Exit Sub
+    End If
+
+    If collisions = 0 Then
+        MsgBox "SELFTEST PASSED", vbInformation
+    Else
+        MsgBox "SELFTEST FAILED: views=" & CStr(oSheet.DrawingViews.Count) & "; collisions=" & CStr(collisions) & "; details in Immediate window.", vbExclamation
+    End If
+End Sub
+
+Private Sub SelfTest_PrintSheetViews(ByVal oSheet As Sheet)
+    Dim i As Long
+    Dim oView As DrawingView
+
+    If oSheet Is Nothing Then Exit Sub
+
+    Debug.Print "SELFTEST: view list begin"
+    For i = 1 To oSheet.DrawingViews.Count
+        Set oView = oSheet.DrawingViews.Item(i)
+        Debug.Print "SELFTEST: view[" & CStr(i) & "] name=" & oView.Name & _
+                    "; Left=" & CStr(oView.Left) & _
+                    "; Top=" & CStr(oView.Top) & _
+                    "; Width=" & CStr(oView.Width) & _
+                    "; Height=" & CStr(oView.Height)
+    Next i
+    Debug.Print "SELFTEST: view list end"
 End Sub
 
 Private Function GetFirstReferencedModel(ByVal oDoc As DrawingDocument) As Document
