@@ -304,10 +304,34 @@ Private Function PlaceOrthographic3Views(ByVal oSheet As Sheet, ByVal oModelDoc 
     Dim sideCaption As String
 
     Set baseView = TryCreateBaseView(oSheet, oModelDoc, scaleValue)
-    If baseView Is Nothing Then Exit Function
+    If baseView Is Nothing Then
+        Debug.Print "LOG: base view is Nothing"
+        Exit Function
+    End If
 
     baseView.Center = Pt(RectCenterX(frontRect), RectCenterY(frontRect))
-    If Not DoesViewFitRect(baseView, frontRect) Or IsViewIntersectingBlockedArea(baseView, blockedRect) Then
+    If Not DoesViewFitRect(baseView, frontRect) Then
+        Debug.Print "LOG: base view rejected; reason=frontRect fit failed" & _
+                    "; scale=" & CStr(scaleValue) & _
+                    "; model=" & oModelDoc.DisplayName & _
+                    "; modelPath=" & oModelDoc.FullFileName & _
+                    "; firstAngle=" & CStr(firstAngle) & _
+                    "; frontRect(" & RectToLogText(frontRect) & ")" & _
+                    "; blockedRect(" & RectToLogText(blockedRect) & ")" & _
+                    "; baseView(" & ViewToLogText(baseView) & ")"
+        baseView.Delete
+        Exit Function
+    End If
+
+    If IsViewIntersectingBlockedArea(baseView, blockedRect) Then
+        Debug.Print "LOG: base view rejected; reason=blockedRect intersection" & _
+                    "; scale=" & CStr(scaleValue) & _
+                    "; model=" & oModelDoc.DisplayName & _
+                    "; modelPath=" & oModelDoc.FullFileName & _
+                    "; firstAngle=" & CStr(firstAngle) & _
+                    "; frontRect(" & RectToLogText(frontRect) & ")" & _
+                    "; blockedRect(" & RectToLogText(blockedRect) & ")" & _
+                    "; baseView(" & ViewToLogText(baseView) & ")"
         baseView.Delete
         Exit Function
     End If
@@ -354,7 +378,13 @@ Private Function TryCreateBaseView(ByVal oSheet As Sheet, ByVal oModelDoc As Doc
     Exit Function
 EH:
     ThisApplication.SilentOperation = False
-    Debug.Print "LOG: AddBaseView failed; sheet=" & SafeSheetName(oSheet) & "; model=" & oModelDoc.DisplayName & "; Err=" & Err.Number & "; " & Err.Description
+    Debug.Print "LOG: AddBaseView failed; sheet=" & SafeSheetName(oSheet) & _
+                "; model=" & oModelDoc.DisplayName & _
+                "; modelPath=" & oModelDoc.FullFileName & _
+                "; scale=" & CStr(scaleValue) & _
+                "; sheetWidth=" & CStr(oSheet.Width) & _
+                "; sheetHeight=" & CStr(oSheet.Height) & _
+                "; Err=" & Err.Number & "; " & Err.Description
     Set TryCreateBaseView = Nothing
 End Function
 
