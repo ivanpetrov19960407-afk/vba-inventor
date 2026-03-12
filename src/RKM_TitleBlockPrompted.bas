@@ -54,11 +54,11 @@ Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleB
     RemoveSheetTitleBlock oSheet
 
     Dim sPrompts(1 To 7) As String
-    sPrompts(1) = "000-2026-АР"
-    sPrompts(2) = "Многоквартирный жилой дом"
-    sPrompts(3) = "План на отм. 0.000"
-    sPrompts(4) = "ООО 'Ромашка'"
-    sPrompts(5) = "П"
+    sPrompts(1) = RuText(48, 48, 48, 45, 50, 48, 50, 54, 45, 1040, 1056)
+    sPrompts(2) = RuText(1052, 1085, 1086, 1075, 1086, 1082, 1074, 1072, 1088, 1090, 1080, 1088, 1085, 1099, 1081, 32, 1078, 1080, 1083, 1086, 1081, 32, 1076, 1086, 1084)
+    sPrompts(3) = RuText(1055, 1083, 1072, 1085, 32, 1085, 1072, 32, 1086, 1090, 1084, 46, 32, 48, 46, 48, 48, 48)
+    sPrompts(4) = RuText(1054, 1054, 1054, 32, 39, 1056, 1086, 1084, 1072, 1096, 1082, 1072, 39)
+    sPrompts(5) = RuText(1055)
     sPrompts(6) = "1"
     sPrompts(7) = "10"
 
@@ -66,7 +66,7 @@ Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleB
     Exit Sub
 
 AddTitleBlockFailed:
-    MsgBox "Ошибка вставки штампа: " & Err.Description, vbExclamation
+    MsgBox RuText(1054, 1096, 1080, 1073, 1082, 1072, 32, 1074, 1089, 1090, 1072, 1074, 1082, 1080, 32, 1096, 1090, 1072, 1084, 1087, 1072, 58, 32) & Err.Description, vbExclamation
 End Sub
 
 Private Sub DrawTitleBlockGeometry(ByVal oDoc As DrawingDocument, ByVal oSketch As DrawingSketch)
@@ -113,25 +113,25 @@ Private Sub AddTitleBlockLabels(ByVal oDoc As DrawingDocument, ByVal oSketch As 
     x1 = x2 - MmToCm(oDoc, TITLE_W_MM)
 
     ' --- СТАТИЧЕСКИЕ НАДПИСИ (Голый текст) ---
-    AddLabelBox oDoc, oSketch, x1, y1, 0, 35, 7, 40, "Изм."
-    AddLabelBox oDoc, oSketch, x1, y1, 7, 35, 17, 40, "Кол.уч"
-    AddLabelBox oDoc, oSketch, x1, y1, 17, 35, 27, 40, "Лист"
-    AddLabelBox oDoc, oSketch, x1, y1, 27, 35, 42, 40, "№ док."
-    AddLabelBox oDoc, oSketch, x1, y1, 42, 35, 57, 40, "Подп."
-    AddLabelBox oDoc, oSketch, x1, y1, 57, 35, 67, 40, "Дата"
+    AddLabelBox oDoc, oSketch, x1, y1, 0, 35, 7, 40, RuText(1048, 1079, 1084, 46)
+    AddLabelBox oDoc, oSketch, x1, y1, 7, 35, 17, 40, RuText(1050, 1086, 1083, 46, 1091, 1095)
+    AddLabelBox oDoc, oSketch, x1, y1, 17, 35, 27, 40, RuText(1051, 1080, 1089, 1090)
+    AddLabelBox oDoc, oSketch, x1, y1, 27, 35, 42, 40, RuText(8470, 32, 1076, 1086, 1082, 46)
+    AddLabelBox oDoc, oSketch, x1, y1, 42, 35, 57, 40, RuText(1055, 1086, 1076, 1087, 46)
+    AddLabelBox oDoc, oSketch, x1, y1, 57, 35, 67, 40, RuText(1044, 1072, 1090, 1072)
 
-    AddLabelBox oDoc, oSketch, x1, y1, 137, 35, 152, 40, "Стадия"
-    AddLabelBox oDoc, oSketch, x1, y1, 152, 35, 167, 40, "Лист"
-    AddLabelBox oDoc, oSketch, x1, y1, 167, 35, 185, 40, "Листов"
+    AddLabelBox oDoc, oSketch, x1, y1, 137, 35, 152, 40, RuText(1057, 1090, 1072, 1076, 1080, 1103)
+    AddLabelBox oDoc, oSketch, x1, y1, 152, 35, 167, 40, RuText(1051, 1080, 1089, 1090)
+    AddLabelBox oDoc, oSketch, x1, y1, 167, 35, 185, 40, RuText(1051, 1080, 1089, 1090, 1086, 1074)
 
     ' --- ИНТЕРАКТИВНЫЕ ПОЛЯ (Голый текст с тегом Prompt) ---
-    AddPromptBox oDoc, oSketch, x1, y1, 67, 40, 185, 55, "ШИФР"
-    AddPromptBox oDoc, oSketch, x1, y1, 67, 15, 137, 40, "НАИМЕНОВАНИЕ_ПРОЕКТА"
-    AddPromptBox oDoc, oSketch, x1, y1, 67, 0, 137, 15, "НАИМЕНОВАНИЕ_ЧЕРТЕЖА"
-    AddPromptBox oDoc, oSketch, x1, y1, 137, 0, 185, 15, "ОРГАНИЗАЦИЯ"
-    AddPromptBox oDoc, oSketch, x1, y1, 137, 15, 152, 35, "СТАДИЯ"
-    AddPromptBox oDoc, oSketch, x1, y1, 152, 15, 167, 35, "ЛИСТ"
-    AddPromptBox oDoc, oSketch, x1, y1, 167, 15, 185, 35, "ЛИСТОВ"
+    AddPromptBox oDoc, oSketch, x1, y1, 67, 40, 185, 55, "CODE"
+    AddPromptBox oDoc, oSketch, x1, y1, 67, 15, 137, 40, "PROJECT_NAME"
+    AddPromptBox oDoc, oSketch, x1, y1, 67, 0, 137, 15, "DRAWING_NAME"
+    AddPromptBox oDoc, oSketch, x1, y1, 137, 0, 185, 15, "ORG_NAME"
+    AddPromptBox oDoc, oSketch, x1, y1, 137, 15, 152, 35, "STAGE"
+    AddPromptBox oDoc, oSketch, x1, y1, 152, 15, 167, 35, "SHEET"
+    AddPromptBox oDoc, oSketch, x1, y1, 167, 15, 185, 35, "SHEETS"
 End Sub
 
 Private Sub AddLabelBox(ByVal oDoc As DrawingDocument, ByVal oSketch As DrawingSketch, ByVal x0 As Double, ByVal y0 As Double, _
