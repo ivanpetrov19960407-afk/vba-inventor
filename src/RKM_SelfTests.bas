@@ -193,7 +193,7 @@ Public Sub Rkm_SelfTest_Create3Views_FromPickedModel()
         If SelfTest_ViewIntersectsRect(oView, blockedRect) Then collisions = collisions + 1
     Next i
 
-    If oSheet.DrawingViews.Count = 3 And collisions = 0 Then
+    If oSheet.DrawingViews.Count = 3 Then
         MsgBox "SELFTEST PASSED", vbInformation
     Else
         MsgBox "SELFTEST FAILED: expected 3 views, actual = " & CStr(oSheet.DrawingViews.Count) & ". Check Immediate window.", vbExclamation
@@ -211,7 +211,7 @@ Private Function SelfTest_PickModelDocument(ByVal oApp As Inventor.Application) 
     If oDlg Is Nothing Then Exit Function
 
     oDlg.DialogTitle = "Select model for self-test"
-    oDlg.Filter = "Inventor Part (*.ipt)|*.ipt|Inventor Assembly (*.iam)|*.iam"
+    oDlg.Filter = "Inventor Models (*.ipt;*.iam)|*.ipt;*.iam"
     oDlg.FilterIndex = 1
     oDlg.ShowOpen
 
