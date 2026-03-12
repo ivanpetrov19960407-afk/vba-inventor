@@ -47,11 +47,13 @@ End Function
 Public Sub ApplyRkmBorderToSheet(ByVal oSheet As Sheet, ByVal oDef As BorderDefinition)
     Dim newBorder As Border
 
-    If oSheet Is Nothing Or oDef Is Nothing Then Exit Sub
+    If oSheet Is Nothing Then Exit Sub
 
     ThisApplication.SilentOperation = True
     RemoveSheetBorder oSheet
-    Set newBorder = oSheet.AddCustomBorder(oDef)
+    If Not oDef Is Nothing Then
+        Set newBorder = oSheet.AddCustomBorder(oDef)
+    End If
     ThisApplication.SilentOperation = False
 End Sub
 
