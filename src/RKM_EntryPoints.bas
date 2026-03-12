@@ -45,3 +45,7 @@ Public Sub Rkm_BuildAlbumFromExcel_AndSaveAs()
 EH:
     MsgBox "SaveAs failed (Err " & Err.Number & "): " & Err.Description, vbCritical
 End Sub
+
+Public Sub Rkm_RunSelfTest_Create3ViewsOnActiveSheet()
+    Rkm_SelfTest_Create3ViewsOnActiveSheet
+End Sub
