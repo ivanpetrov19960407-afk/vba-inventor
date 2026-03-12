@@ -16,25 +16,28 @@ Public Sub Rkm_BuildOrUpdateIdwAlbum()
     Dim oModelDoc As Document
     Dim borderDef As BorderDefinition
     Dim titleDef As TitleBlockDefinition
+    Dim hadFatalError As Boolean
+    Dim fatalMessage As String
 
     On Error GoTo EH
+    ThisApplication.SilentOperation = True
 
     Set oDoc = GetActiveDrawingDocument(ThisApplication)
-    If oDoc Is Nothing Then Exit Sub
+    If oDoc Is Nothing Then GoTo CleanUp
 
-    If Not CanEditDrawingResources(ThisApplication) Then Exit Sub
+    If Not CanEditDrawingResources(ThisApplication) Then GoTo CleanUp
 
     modelCount = CollectNumberedIptPaths(modelPaths)
     If modelCount = 0 Then
-        MsgBox "No numbered IPT files found in active project workspace.", vbExclamation
-        Exit Sub
+        Debug.Print "LOG: No numbered IPT files found in active project workspace."
+        GoTo CleanUp
     End If
 
     Set borderDef = EnsureRkmBorderDefinition(oDoc)
-    If borderDef Is Nothing Then Exit Sub
+    If borderDef Is Nothing Then GoTo CleanUp
 
     Set titleDef = EnsureRkmTitleBlockDefinition(oDoc)
-    If titleDef Is Nothing Then Exit Sub
+    If titleDef Is Nothing Then GoTo CleanUp
 
     For i = 1 To modelCount
         Set oSheet = EnsureAlbumSheet(oDoc, modelPaths(i))
@@ -62,10 +65,18 @@ ContinueLoop:
 
     RemoveStaleAlbumSheets oDoc, modelPaths, modelCount
 
-    MsgBox "IDW album build/update completed: " & CStr(modelCount) & " sheets.", vbInformation
-    Exit Sub
+    Debug.Print "LOG: IDW album build/update completed: " & CStr(modelCount) & " sheets."
+    GoTo CleanUp
 EH:
-    MsgBox "Album build failed: " & Err.Description, vbCritical
+    hadFatalError = True
+    fatalMessage = Err.Description
+    Debug.Print "LOG: Album build failed: " & fatalMessage
+
+CleanUp:
+    ThisApplication.SilentOperation = False
+    If hadFatalError Then
+        MsgBox "Album build failed: " & fatalMessage, vbCritical
+    End If
 End Sub
 
 Private Sub BuildSheetViews(ByVal oDoc As DrawingDocument, ByVal oSheet As Sheet, ByVal oModelDoc As Document)
@@ -90,7 +101,7 @@ Private Sub BuildSheetViews(ByVal oDoc As DrawingDocument, ByVal oSheet As Sheet
     Next i
 
     If Not placed Then
-        MsgBox "Cannot place base view for model: " & oModelDoc.DisplayName, vbExclamation
+        Debug.Print "LOG: Skipping model " & oModelDoc.DisplayName & " - View placement failed."
         Exit Sub
     End If
 
@@ -421,6 +432,7 @@ End Function
 Private Function OpenModelDocument(ByVal modelPath As String) As Document
     Dim i As Long
     Dim oDoc As Document
+    Dim previousSilentOperation As Boolean
 
     For i = 1 To ThisApplication.Documents.Count
         Set oDoc = ThisApplication.Documents.Item(i)
@@ -431,8 +443,12 @@ Private Function OpenModelDocument(ByVal modelPath As String) As Document
     Next i
 
     On Error GoTo EH
+    previousSilentOperation = ThisApplication.SilentOperation
+    ThisApplication.SilentOperation = True
     Set OpenModelDocument = ThisApplication.Documents.Open(modelPath, False)
+    ThisApplication.SilentOperation = previousSilentOperation
     Exit Function
 EH:
+    ThisApplication.SilentOperation = previousSilentOperation
     Set OpenModelDocument = Nothing
 End Function
