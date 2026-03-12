@@ -17,8 +17,7 @@ Public Function EnsureRkmTitleBlockDefinition(ByVal oDoc As DrawingDocument) As 
 
     RemoveSheetTitleBlock oDoc.ActiveSheet
 
-    ' Версия 16 - Полное удаление XML-форматирования шрифтов
-    targetName = RKM_TITLEBLOCK_NAME & "_V16"
+    targetName = RKM_TITLEBLOCK_NAME & "_V17"
 
     Set oDef = TitleBlockDefinitionByName(oDoc, targetName)
     If oDef Is Nothing Then
@@ -47,37 +46,118 @@ EH:
         oDef.ExitEdit False
         On Error GoTo 0
     End If
-    MsgBox "Title block update failed: " & Err.Description, vbCritical
+    MsgBox "Title block update failed (Err " & Err.Number & "): " & Err.Description, vbCritical
 End Function
 
 Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleBlockDefinition)
+    Dim defaultPrompts As Object
+
+    Set defaultPrompts = DefaultPromptMap()
+    ApplyRkmTitleBlockToSheetWithPrompts oSheet, oDef, defaultPrompts
+End Sub
+
+Public Sub ApplyRkmTitleBlockToSheetWithPrompts(ByVal oSheet As Sheet, ByVal oDef As TitleBlockDefinition, Optional ByVal promptData As Variant)
+    Dim promptStrings() As String
+    Dim newTitleBlock As TitleBlock
+
     On Error GoTo AddTitleBlockFailed
 
     If oSheet Is Nothing Or oDef Is Nothing Then Exit Sub
+
+    promptStrings = BuildPromptStringsFromAny(promptData)
+
     ThisApplication.SilentOperation = True
     RemoveSheetTitleBlock oSheet
-    ThisApplication.SilentOperation = False
-
-    Dim sPrompts(1 To 7) As String
-    sPrompts(1) = RuText(48, 48, 48, 45, 50, 48, 50, 54, 45, 1040, 1056)
-    sPrompts(2) = RuText(1052, 1085, 1086, 1075, 1086, 1082, 1074, 1072, 1088, 1090, 1080, 1088, 1085, 1099, 1081, 32, 1078, 1080, 1083, 1086, 1081, 32, 1076, 1086, 1084)
-    sPrompts(3) = RuText(1055, 1083, 1072, 1085, 32, 1085, 1072, 32, 1086, 1090, 1084, 46, 32, 48, 46, 48, 48, 48)
-    sPrompts(4) = RuText(1054, 1054, 1054, 32, 39, 1056, 1086, 1084, 1072, 1096, 1082, 1072, 39)
-    sPrompts(5) = RuText(1055)
-    sPrompts(6) = "1"
-    sPrompts(7) = "10"
-
-    Dim newTitleBlock As TitleBlock
-    ThisApplication.SilentOperation = True
-    If Not oDef Is Nothing Then
-        Set newTitleBlock = oSheet.AddTitleBlock(oDef, , sPrompts)
-    End If
+    Set newTitleBlock = oSheet.AddTitleBlock(oDef, , promptStrings)
     ThisApplication.SilentOperation = False
     Exit Sub
 
 AddTitleBlockFailed:
     ThisApplication.SilentOperation = False
-    MsgBox RuText(1054, 1096, 1080, 1073, 1082, 1072, 32, 1074, 1089, 1090, 1072, 1074, 1082, 1080, 32, 1096, 1090, 1072, 1084, 1087, 1072, 58, 32) & Err.Description, vbExclamation
+    Debug.Print "LOG: AddTitleBlock failed; sheet=" & oSheet.Name & "; def=" & oDef.Name & "; Err=" & Err.Number & "; " & Err.Description
+    Err.Raise Err.Number, "ApplyRkmTitleBlockToSheetWithPrompts", Err.Description
+End Sub
+
+Public Function GetPromptOrder() As Variant
+    GetPromptOrder = Array("CODE", "PROJECT_NAME", "DRAWING_NAME", "ORG_NAME", "STAGE", "SHEET", "SHEETS")
+End Function
+
+Public Function DefaultPromptMap() As Object
+    Dim map As Object
+
+    Set map = CreateObject("Scripting.Dictionary")
+    map.CompareMode = vbTextCompare
+
+    map("CODE") = RuText(48, 48, 48, 45, 50, 48, 50, 54, 45, 1040, 1056)
+    map("PROJECT_NAME") = RuText(1052, 1085, 1086, 1075, 1086, 1082, 1074, 1072, 1088, 1090, 1080, 1088, 1085, 1099, 1081, 32, 1078, 1080, 1083, 1086, 1081, 32, 1076, 1086, 1084)
+    map("DRAWING_NAME") = RuText(1055, 1083, 1072, 1085, 32, 1085, 1072, 32, 1086, 1090, 1084, 46, 32, 48, 46, 48, 48, 48)
+    map("ORG_NAME") = RuText(1054, 1054, 1054, 32, 39, 1056, 1086, 1084, 1072, 1096, 1082, 1072, 39)
+    map("STAGE") = RuText(1055)
+    map("SHEET") = "1"
+    map("SHEETS") = "1"
+
+    Set DefaultPromptMap = map
+End Function
+
+Public Function BuildPromptStringsFromAny(Optional ByVal promptData As Variant) As String()
+    Dim prompts() As String
+    Dim order As Variant
+    Dim i As Long
+    Dim lb As Long
+
+    order = GetPromptOrder()
+    ReDim prompts(1 To UBound(order) - LBound(order) + 1)
+
+    If IsMissing(promptData) Or IsEmpty(promptData) Then
+        FillPromptStringsFromMap prompts, DefaultPromptMap(), order
+        BuildPromptStringsFromAny = prompts
+        Exit Function
+    End If
+
+    If IsObject(promptData) Then
+        If TypeName(promptData) = "Dictionary" Or TypeName(promptData) = "Scripting.Dictionary" Then
+            FillPromptStringsFromMap prompts, promptData, order
+            BuildPromptStringsFromAny = prompts
+            Exit Function
+        End If
+    End If
+
+    If IsArray(promptData) Then
+        lb = LBound(promptData)
+        For i = 1 To UBound(prompts)
+            If lb + (i - 1) <= UBound(promptData) Then
+                prompts(i) = CStr(promptData(lb + (i - 1)))
+            Else
+                prompts(i) = ""
+            End If
+        Next i
+        BuildPromptStringsFromAny = prompts
+        Exit Function
+    End If
+
+    FillPromptStringsFromMap prompts, DefaultPromptMap(), order
+    BuildPromptStringsFromAny = prompts
+End Function
+
+Private Sub FillPromptStringsFromMap(ByRef prompts() As String, ByVal promptMap As Object, ByVal promptOrder As Variant)
+    Dim defaults As Object
+    Dim i As Long
+    Dim keyName As String
+
+    Set defaults = DefaultPromptMap()
+
+    For i = LBound(promptOrder) To UBound(promptOrder)
+        keyName = CStr(promptOrder(i))
+        prompts(i - LBound(promptOrder) + 1) = CStr(defaults(keyName))
+
+        If Not promptMap Is Nothing Then
+            If promptMap.Exists(keyName) Then
+                If Len(CStr(promptMap(keyName))) > 0 Then
+                    prompts(i - LBound(promptOrder) + 1) = CStr(promptMap(keyName))
+                End If
+            End If
+        End If
+    Next i
 End Sub
 
 Private Sub DrawTitleBlockGeometry(ByVal oDoc As DrawingDocument, ByVal oSketch As DrawingSketch)
@@ -123,7 +203,6 @@ Private Sub AddTitleBlockLabels(ByVal oDoc As DrawingDocument, ByVal oSketch As 
     y1 = MmToCm(oDoc, 5)
     x1 = x2 - MmToCm(oDoc, TITLE_W_MM)
 
-    ' --- СТАТИЧЕСКИЕ НАДПИСИ (Голый текст) ---
     AddLabelBox oDoc, oSketch, x1, y1, 0, 35, 7, 40, RuText(1048, 1079, 1084, 46)
     AddLabelBox oDoc, oSketch, x1, y1, 7, 35, 17, 40, RuText(1050, 1086, 1083, 46, 1091, 1095)
     AddLabelBox oDoc, oSketch, x1, y1, 17, 35, 27, 40, RuText(1051, 1080, 1089, 1090)
@@ -135,7 +214,6 @@ Private Sub AddTitleBlockLabels(ByVal oDoc As DrawingDocument, ByVal oSketch As 
     AddLabelBox oDoc, oSketch, x1, y1, 152, 35, 167, 40, RuText(1051, 1080, 1089, 1090)
     AddLabelBox oDoc, oSketch, x1, y1, 167, 35, 185, 40, RuText(1051, 1080, 1089, 1090, 1086, 1074)
 
-    ' --- ИНТЕРАКТИВНЫЕ ПОЛЯ (Голый текст с тегом Prompt) ---
     AddPromptBox oDoc, oSketch, x1, y1, 67, 40, 185, 55, "CODE"
     AddPromptBox oDoc, oSketch, x1, y1, 67, 15, 137, 40, "PROJECT_NAME"
     AddPromptBox oDoc, oSketch, x1, y1, 67, 0, 137, 15, "DRAWING_NAME"

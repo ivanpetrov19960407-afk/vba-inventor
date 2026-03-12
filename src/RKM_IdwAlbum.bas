@@ -10,7 +10,54 @@ Private Const TITLE_SAFE_LEFT_MM As Double = 230#
 Public Sub Rkm_BuildOrUpdateIdwAlbum()
     Dim oDoc As DrawingDocument
     Dim modelPaths() As String
+    Dim modelItems As Collection
     Dim modelCount As Long
+    Dim i As Long
+    Dim item As Object
+
+    Set oDoc = GetActiveDrawingDocument(ThisApplication)
+    If oDoc Is Nothing Then Exit Sub
+
+    modelCount = CollectNumberedIptPaths(modelPaths)
+    If modelCount = 0 Then
+        Debug.Print "LOG: No numbered IPT files found in active project workspace."
+        Exit Sub
+    End If
+
+    Set modelItems = New Collection
+    For i = 1 To modelCount
+        Set item = CreateObject("Scripting.Dictionary")
+        item.CompareMode = vbTextCompare
+        item("MODEL_PATH") = modelPaths(i)
+        item("PROMPTS") = CreateObject("Scripting.Dictionary")
+        modelItems.Add item
+    Next i
+
+    BuildOrUpdateAlbumCore oDoc, modelItems
+End Sub
+
+Public Sub Rkm_BuildOrUpdateIdwAlbum_FromExcel(ByVal oDoc As DrawingDocument, ByVal excelPath As String)
+    Dim modelItems As Collection
+    Dim workspacePath As String
+
+    If oDoc Is Nothing Then Exit Sub
+
+    workspacePath = GetProjectWorkspacePath()
+    Set modelItems = LoadAlbumItemsFromExcel(excelPath, workspacePath, "ALBUM")
+    If modelItems Is Nothing Then
+        MsgBox "Album build failed (Err 0): Excel parsing returned no data.", vbCritical
+        Exit Sub
+    End If
+
+    If modelItems.Count = 0 Then
+        MsgBox "Excel does not contain valid MODEL_PATH rows.", vbExclamation
+        Exit Sub
+    End If
+
+    BuildOrUpdateAlbumCore oDoc, modelItems
+End Sub
+
+Public Sub BuildOrUpdateAlbumCore(ByVal oDoc As DrawingDocument, ByVal modelItems As Collection)
     Dim i As Long
     Dim oSheet As Sheet
     Dim oModelDoc As Document
@@ -18,69 +65,146 @@ Public Sub Rkm_BuildOrUpdateIdwAlbum()
     Dim titleDef As TitleBlockDefinition
     Dim hadFatalError As Boolean
     Dim fatalMessage As String
+    Dim fatalErrNumber As Long
+    Dim item As Object
+    Dim modelPath As String
+    Dim promptMap As Object
+    Dim activeStage As String
 
     On Error GoTo EH
     ThisApplication.SilentOperation = True
 
-    Set oDoc = GetActiveDrawingDocument(ThisApplication)
     If oDoc Is Nothing Then GoTo CleanUp
-
+    If modelItems Is Nothing Then GoTo CleanUp
+    If modelItems.Count = 0 Then GoTo CleanUp
     If Not CanEditDrawingResources(ThisApplication) Then GoTo CleanUp
 
-    modelCount = CollectNumberedIptPaths(modelPaths)
-    If modelCount = 0 Then
-        Debug.Print "LOG: No numbered IPT files found in active project workspace."
-        GoTo CleanUp
+    Set borderDef = EnsureRkmBorderDefinition(oDoc)
+    If borderDef Is Nothing Then
+        Err.Raise vbObjectError + 3300, "BuildOrUpdateAlbumCore", "BorderDefinition was not created."
     End If
 
-    Set borderDef = EnsureRkmBorderDefinition(oDoc)
-    If borderDef Is Nothing Then GoTo CleanUp
-
     Set titleDef = EnsureRkmTitleBlockDefinition(oDoc)
-    If titleDef Is Nothing Then GoTo CleanUp
+    If titleDef Is Nothing Then
+        Err.Raise vbObjectError + 3301, "BuildOrUpdateAlbumCore", "TitleBlockDefinition was not created."
+    End If
 
-    For i = 1 To modelCount
-        Set oSheet = EnsureAlbumSheet(oDoc, modelPaths(i))
-        If oSheet Is Nothing Then GoTo ContinueLoop
+    For i = 1 To modelItems.Count
+        Set item = modelItems.Item(i)
+        modelPath = CStr(item("MODEL_PATH"))
+        Set promptMap = ResolvePromptMap(item, i, modelItems.Count)
 
+        activeStage = "ensure sheet"
+        Set oSheet = EnsureAlbumSheet(oDoc, modelPath)
+        If oSheet Is Nothing Then
+            Debug.Print "LOG: skip, sheet failed; model=" & modelPath
+            GoTo ContinueLoop
+        End If
+
+        activeStage = "prepare sheet"
         oSheet.Activate
         On Error Resume Next
         oSheet.Size = kA3DrawingSheetSize
         oSheet.Orientation = kLandscapePageOrientation
         On Error GoTo EH
 
+        activeStage = "remove views"
         RemoveAllDrawingViews oSheet
-        ApplyRkmBorderToSheet oSheet, borderDef
-        ApplyRkmTitleBlockToSheet oSheet, titleDef
 
-        Set oModelDoc = OpenModelDocument(modelPaths(i))
+        activeStage = "apply border"
+        ApplyRkmBorderToSheetSafe oSheet, borderDef
+
+        activeStage = "apply title"
+        ApplyRkmTitleBlockToSheetWithPrompts oSheet, titleDef, promptMap
+
+        activeStage = "open model"
+        Set oModelDoc = OpenModelDocument(modelPath)
         If oModelDoc Is Nothing Then
-            Debug.Print "Skip model (open failed): " & modelPaths(i)
+            Debug.Print "LOG: Skip model (open failed): " & modelPath
             GoTo ContinueLoop
         End If
 
+        activeStage = "add views"
         BuildSheetViews oDoc, oSheet, oModelDoc
 
 ContinueLoop:
+        Debug.Print "LOG: done row=" & CStr(i) & "; stage=" & activeStage & "; sheet=" & SafeSheetName(oSheet) & "; model=" & modelPath
         Set oModelDoc = Nothing
+        Set oSheet = Nothing
     Next i
 
-    RemoveStaleAlbumSheets oDoc, modelPaths, modelCount
+    RemoveStaleAlbumSheetsByItems oDoc, modelItems
 
-    Debug.Print "LOG: IDW album build/update completed: " & CStr(modelCount) & " sheets."
+    Debug.Print "LOG: IDW album build/update completed: " & CStr(modelItems.Count) & " sheets."
     GoTo CleanUp
 EH:
     ThisApplication.SilentOperation = False
     hadFatalError = True
+    fatalErrNumber = Err.Number
     fatalMessage = Err.Description
-    Debug.Print "LOG: Album build failed: " & fatalMessage
+    Debug.Print "LOG: Album build failed; stage=" & activeStage & "; sheet=" & SafeSheetName(oSheet) & "; model=" & modelPath & "; Err=" & CStr(fatalErrNumber) & "; " & fatalMessage
 
 CleanUp:
     ThisApplication.SilentOperation = False
     If hadFatalError Then
-        MsgBox "Album build failed: " & fatalMessage, vbCritical
+        MsgBox "Album build failed (Err " & CStr(fatalErrNumber) & "): " & fatalMessage, vbCritical
     End If
 End Sub
+
+Private Sub ApplyRkmBorderToSheetSafe(ByVal oSheet As Sheet, ByVal oDef As BorderDefinition)
+    On Error GoTo EH
+    ApplyRkmBorderToSheet oSheet, oDef
+    Exit Sub
+EH:
+    Debug.Print "LOG: Apply border failed; sheet=" & SafeSheetName(oSheet) & "; Err=" & Err.Number & "; " & Err.Description
+    Err.Raise Err.Number, "ApplyRkmBorderToSheetSafe", Err.Description
+End Sub
+
+Private Function ResolvePromptMap(ByVal item As Object, ByVal itemIndex As Long, ByVal totalItems As Long) As Object
+    Dim result As Object
+
+    Set result = DefaultPromptMap()
+
+    If Not item Is Nothing Then
+        If item.Exists("PROMPTS") Then MergePromptMaps result, item("PROMPTS")
+        If item.Exists("SHEET") Then
+            If Len(Trim$(CStr(item("SHEET")))) > 0 Then result("SHEET") = Trim$(CStr(item("SHEET")))
+        End If
+        If item.Exists("SHEETS") Then
+            If Len(Trim$(CStr(item("SHEETS")))) > 0 Then result("SHEETS") = Trim$(CStr(item("SHEETS")))
+        End If
+    End If
+
+    If Len(Trim$(CStr(result("SHEET")))) = 0 Then result("SHEET") = CStr(itemIndex)
+    If Len(Trim$(CStr(result("SHEETS")))) = 0 Then result("SHEETS") = CStr(totalItems)
+
+    Set ResolvePromptMap = result
+End Function
+
+Private Sub MergePromptMaps(ByVal targetMap As Object, ByVal sourceMap As Object)
+    Dim key As Variant
+    Dim keyName As String
+
+    If targetMap Is Nothing Then Exit Sub
+    If sourceMap Is Nothing Then Exit Sub
+
+    For Each key In sourceMap.Keys
+        keyName = CStr(key)
+        If targetMap.Exists(keyName) Then
+            If Len(Trim$(CStr(sourceMap(key)))) > 0 Then
+                targetMap(keyName) = CStr(sourceMap(key))
+            End If
+        End If
+    Next key
+End Sub
+
+Private Function SafeSheetName(ByVal oSheet As Sheet) As String
+    If oSheet Is Nothing Then
+        SafeSheetName = "<none>"
+    Else
+        SafeSheetName = oSheet.Name
+    End If
+End Function
 
 Private Sub BuildSheetViews(ByVal oDoc As DrawingDocument, ByVal oSheet As Sheet, ByVal oModelDoc As Document)
     Dim scaleCandidates As Variant
@@ -122,19 +246,15 @@ Private Function TryCreateBaseView(ByVal oSheet As Sheet, ByVal oModelDoc As Doc
     Exit Function
 EH:
     ThisApplication.SilentOperation = False
+    Debug.Print "LOG: AddBaseView failed; sheet=" & SafeSheetName(oSheet) & "; model=" & oModelDoc.DisplayName & "; Err=" & Err.Number & "; " & Err.Description
     Set TryCreateBaseView = Nothing
 End Function
 
 Private Sub TryAddProjectedViews(ByVal oDoc As DrawingDocument, ByVal oSheet As Sheet, ByVal baseView As DrawingView)
-    Dim xMin As Double, xMax As Double, yMin As Double, yMax As Double
     Dim gapCm As Double
 
     If baseView Is Nothing Then Exit Sub
 
-    xMin = MmToCm(oDoc, FRAME_LEFT_MM)
-    xMax = MmToCm(oDoc, A3_WIDTH_MM - FRAME_OTHER_MM)
-    yMin = MmToCm(oDoc, FRAME_OTHER_MM)
-    yMax = MmToCm(oDoc, A3_HEIGHT_MM - FRAME_OTHER_MM)
     gapCm = MmToCm(oDoc, GAP_MM)
 
     TryAddOneProjected oDoc, oSheet, baseView, Pt(baseView.Center.X + baseView.Width / 2# + gapCm + baseView.Width / 2#, baseView.Center.Y)
@@ -161,6 +281,7 @@ Private Sub TryAddOneProjected(ByVal oDoc As DrawingDocument, ByVal oSheet As Sh
     Exit Sub
 EH:
     ThisApplication.SilentOperation = False
+    Debug.Print "LOG: AddProjectedView failed; sheet=" & SafeSheetName(oSheet) & "; Err=" & Err.Number & "; " & Err.Description
     On Error Resume Next
     If Not projView Is Nothing Then projView.Delete
     On Error GoTo 0
@@ -247,7 +368,7 @@ Private Function FindSheetByName(ByVal oDoc As DrawingDocument, ByVal sheetName 
     Next i
 End Function
 
-Private Sub RemoveStaleAlbumSheets(ByVal oDoc As DrawingDocument, ByRef modelPaths() As String, ByVal modelCount As Long)
+Private Sub RemoveStaleAlbumSheetsByItems(ByVal oDoc As DrawingDocument, ByVal modelItems As Collection)
     Dim i As Long
     Dim oSheet As Sheet
 
@@ -256,19 +377,23 @@ Private Sub RemoveStaleAlbumSheets(ByVal oDoc As DrawingDocument, ByRef modelPat
     For i = oDoc.Sheets.Count To 1 Step -1
         Set oSheet = oDoc.Sheets.Item(i)
         If IsAlbumSheet(oSheet.Name) Then
-            If Not IsSheetBackedByModel(oSheet.Name, modelPaths, modelCount) Then
+            If Not IsSheetBackedByItems(oSheet.Name, modelItems) Then
                 oSheet.Delete
             End If
         End If
     Next i
 End Sub
 
-Private Function IsSheetBackedByModel(ByVal sheetName As String, ByRef modelPaths() As String, ByVal modelCount As Long) As Boolean
+Private Function IsSheetBackedByItems(ByVal sheetName As String, ByVal modelItems As Collection) As Boolean
     Dim i As Long
+    Dim item As Object
 
-    For i = 1 To modelCount
-        If StrComp(Split(sheetName, ":")(0), MakeAlbumSheetName(modelPaths(i)), vbTextCompare) = 0 Then
-            IsSheetBackedByModel = True
+    If modelItems Is Nothing Then Exit Function
+
+    For i = 1 To modelItems.Count
+        Set item = modelItems.Item(i)
+        If StrComp(Split(sheetName, ":")(0), MakeAlbumSheetName(CStr(item("MODEL_PATH"))), vbTextCompare) = 0 Then
+            IsSheetBackedByItems = True
             Exit Function
         End If
     Next i
@@ -326,10 +451,12 @@ End Function
 Private Sub CollectIptRecursive(ByVal folderObj As Object, ByVal bag As Collection)
     Dim subFolder As Object
     Dim fileObj As Object
+    Dim baseNameText As String
 
     For Each fileObj In folderObj.Files
         If LCase$(Right$(fileObj.Name, Len(MODEL_EXT))) = MODEL_EXT Then
-            If HasNumericPrefix(BaseName(CStr(fileObj.Name))) Then
+            baseNameText = BaseName(CStr(fileObj.Name))
+            If HasNumericPrefix(baseNameText) And Not IsVersionedNumericPattern(baseNameText) Then
                 bag.Add CStr(fileObj.Path)
             End If
         End If
@@ -340,15 +467,38 @@ Private Sub CollectIptRecursive(ByVal folderObj As Object, ByVal bag As Collecti
     Next subFolder
 End Sub
 
+Private Function IsVersionedNumericPattern(ByVal baseNameText As String) As Boolean
+    Dim parts() As String
+
+    parts = Split(baseNameText, ".")
+    If UBound(parts) <> 1 Then Exit Function
+
+    IsVersionedNumericPattern = (Len(parts(0)) = 3 And IsDigitsOnly(parts(0)) And Len(parts(1)) = 4 And IsDigitsOnly(parts(1)))
+End Function
+
+Private Function IsDigitsOnly(ByVal valueText As String) As Boolean
+    Dim i As Long
+    Dim ch As String
+
+    If Len(valueText) = 0 Then Exit Function
+
+    IsDigitsOnly = True
+    For i = 1 To Len(valueText)
+        ch = Mid$(valueText, i, 1)
+        If ch < "0" Or ch > "9" Then
+            IsDigitsOnly = False
+            Exit Function
+        End If
+    Next i
+End Function
+
 Private Function HasNumericPrefix(ByVal fileNameWithoutExt As String) As Boolean
     Dim i As Long
     Dim ch As String
 
     For i = 1 To Len(fileNameWithoutExt)
         ch = Mid$(fileNameWithoutExt, i, 1)
-        If ch < "0" Or ch > "9" Then
-            Exit For
-        End If
+        If ch < "0" Or ch > "9" Then Exit For
         HasNumericPrefix = True
     Next i
 End Function
@@ -421,7 +571,7 @@ Private Function LeadingNumber(ByVal valueText As String) As Long
     End If
 End Function
 
-Private Function GetProjectWorkspacePath() As String
+Public Function GetProjectWorkspacePath() As String
     Dim oProj As DesignProject
 
     On Error GoTo EH
@@ -456,5 +606,6 @@ Private Function OpenModelDocument(ByVal modelPath As String) As Document
     Exit Function
 EH:
     ThisApplication.SilentOperation = False
+    Debug.Print "LOG: Open model failed; path=" & modelPath & "; Err=" & Err.Number & "; " & Err.Description
     Set OpenModelDocument = Nothing
 End Function

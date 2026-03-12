@@ -189,3 +189,41 @@ Public Function RuText(ParamArray cps() As Variant) As String
 
     RuText = result
 End Function
+
+
+Public Function PickExcelFilePath() As String
+    Dim oDlg As FileDialog
+
+    On Error GoTo EH
+    ThisApplication.CreateFileDialog oDlg
+    If oDlg Is Nothing Then Exit Function
+
+    oDlg.DialogTitle = "Select Excel album source"
+    oDlg.Filter = "Excel files (*.xlsx;*.xlsm;*.xls)|*.xlsx;*.xlsm;*.xls"
+    oDlg.FilterIndex = 1
+    oDlg.ShowOpen
+
+    PickExcelFilePath = Trim$(oDlg.FileName)
+    Exit Function
+EH:
+    PickExcelFilePath = ""
+End Function
+
+Public Function PickIdwSavePath(Optional ByVal defaultFileName As String = "Album.idw") As String
+    Dim oDlg As FileDialog
+
+    On Error GoTo EH
+    ThisApplication.CreateFileDialog oDlg
+    If oDlg Is Nothing Then Exit Function
+
+    oDlg.DialogTitle = "Save IDW album"
+    oDlg.Filter = "Inventor Drawing (*.idw)|*.idw"
+    oDlg.FilterIndex = 1
+    oDlg.FileName = defaultFileName
+    oDlg.ShowSave
+
+    PickIdwSavePath = Trim$(oDlg.FileName)
+    Exit Function
+EH:
+    PickIdwSavePath = ""
+End Function
