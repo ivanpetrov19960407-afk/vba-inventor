@@ -134,6 +134,75 @@ Public Sub Rkm_SelfTest_BaseViewOnly_OnActiveSheet()
     MsgBox "BASEVIEW OK", vbInformation
 End Sub
 
+Public Sub Rkm_SelfTest_BaseView_FromPickedModel()
+    Dim oDoc As DrawingDocument
+    Dim oSheet As Sheet
+    Dim oModelDoc As Document
+    Dim firstAngle As Boolean
+    Dim frontRect As Object
+    Dim blockedRect As Object
+    Dim baseView As DrawingView
+    Dim scaleValue As Double
+    Dim reasonText As String
+
+    Set oDoc = GetActiveDrawingDocument(ThisApplication)
+    If oDoc Is Nothing Then Exit Sub
+
+    Set oSheet = oDoc.ActiveSheet
+    If oSheet Is Nothing Then Exit Sub
+
+    Set oModelDoc = SelfTest_PickModelDocument(ThisApplication)
+    If oModelDoc Is Nothing Then
+        MsgBox "BASEVIEW CANCELLED: model not selected", vbExclamation
+        Debug.Print "SELFTEST BASEVIEW PICKED: failure reason=model not selected"
+        Exit Sub
+    End If
+
+    RemoveAllDrawingViewsFromSheet oSheet
+
+    firstAngle = SelfTest_GetProjectionStandard(oDoc)
+    Set frontRect = SelfTest_GetFrontViewRectCm(oDoc, firstAngle)
+    Set blockedRect = SelfTest_GetTitleBlockBlockedRectCm(oDoc)
+    scaleValue = 1#
+
+    Debug.Print "SELFTEST BASEVIEW PICKED: modelPath=" & oModelDoc.FullFileName
+    Debug.Print "SELFTEST BASEVIEW PICKED: activeSheet=" & oSheet.Name
+    Debug.Print "SELFTEST BASEVIEW PICKED: firstAngle=" & CStr(firstAngle)
+    Debug.Print "SELFTEST BASEVIEW PICKED: frontRect L=" & CStr(frontRect("Left")) & ", R=" & CStr(frontRect("Right")) & ", B=" & CStr(frontRect("Bottom")) & ", T=" & CStr(frontRect("Top"))
+    Debug.Print "SELFTEST BASEVIEW PICKED: blockedRect L=" & CStr(blockedRect("Left")) & ", R=" & CStr(blockedRect("Right")) & ", B=" & CStr(blockedRect("Bottom")) & ", T=" & CStr(blockedRect("Top"))
+
+    On Error Resume Next
+    Set baseView = oSheet.DrawingViews.AddBaseView( _
+        oModelDoc, Pt(oSheet.Width / 2#, oSheet.Height / 2#), _
+        scaleValue, kFrontViewOrientation, kHiddenLineRemovedDrawingViewStyle)
+    On Error GoTo 0
+
+    If baseView Is Nothing Then
+        reasonText = "AddBaseView returned Nothing"
+        Debug.Print "SELFTEST BASEVIEW PICKED: failure reason=" & reasonText
+        MsgBox "BASEVIEW FAILED: AddBaseView returned Nothing. Check Immediate window.", vbExclamation
+        Exit Sub
+    End If
+
+    Debug.Print "SELFTEST BASEVIEW PICKED: view Left=" & CStr(baseView.Left) & "; Top=" & CStr(baseView.Top) & "; Width=" & CStr(baseView.Width) & "; Height=" & CStr(baseView.Height)
+
+    If Not SelfTest_ViewFitsRect(baseView, frontRect) Then
+        reasonText = "frontRect fit failed"
+        Debug.Print "SELFTEST BASEVIEW PICKED: failure reason=" & reasonText
+        MsgBox "BASEVIEW FAILED: frontRect fit failed. Check Immediate window.", vbExclamation
+        Exit Sub
+    End If
+
+    If SelfTest_ViewIntersectsRect(baseView, blockedRect) Then
+        reasonText = "blockedRect collision"
+        Debug.Print "SELFTEST BASEVIEW PICKED: failure reason=" & reasonText
+        MsgBox "BASEVIEW FAILED: blockedRect collision. Check Immediate window.", vbExclamation
+        Exit Sub
+    End If
+
+    MsgBox "BASEVIEW PASSED", vbInformation
+End Sub
+
 Public Sub Rkm_SelfTest_Create3Views_FromPickedModel()
     Dim oDoc As DrawingDocument
     Dim oSheet As Sheet
