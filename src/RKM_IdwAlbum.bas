@@ -4,9 +4,13 @@ Option Explicit
 Private Const ALBUM_SHEET_PREFIX As String = "ALB_"
 Private Const MODEL_EXT As String = ".ipt"
 Private Const GAP_MM As Double = 8#
-Private Const TITLE_SAFE_TOP_MM As Double = 60#
-Private Const TITLE_SAFE_LEFT_MM As Double = 230#
 Private Const LAYOUT_PAD_MM As Double = 6#
+Private Const BLOCKED_W_MM As Double = 185#
+Private Const BLOCKED_H_MM As Double = 55#
+Private Const TOP_ROW_RATIO As Double = 0.36
+Private Const SIDE_COL_RATIO As Double = 0.34
+Private Const LABEL_OFFSET_MM As Double = 4#
+Private Const LABEL_MARGIN_MM As Double = 2#
 
 Public Sub Rkm_BuildOrUpdateIdwAlbum()
     Dim oDoc As DrawingDocument
@@ -208,131 +212,124 @@ Private Function SafeSheetName(ByVal oSheet As Sheet) As String
 End Function
 
 Private Sub BuildSheetViews(ByVal oDoc As DrawingDocument, ByVal oSheet As Sheet, ByVal oModelDoc As Document)
+    BuildSheetViews_Orthographic3 oDoc, oSheet, oModelDoc, Nothing
+End Sub
+
+Public Sub BuildSheetViews_Orthographic3(ByVal oDoc As DrawingDocument, ByVal oSheet As Sheet, ByVal oModelDoc As Document, Optional ByVal itemMeta As Variant)
     Dim scaleCandidates As Variant
-    Dim i As Long
-    Dim scaleValue As Double
-    Dim trialVariant As Long
-    Dim bestVariant As Long
-    Dim bestScale As Double
-    Dim bestHasRight As Boolean
-    Dim bestHasTop As Boolean
-    Dim baseFits As Boolean
-    Dim rightFits As Boolean
-    Dim topFits As Boolean
-    Dim trialArea As Double
-    Dim bestArea As Double
+    Dim selectedScale As Double
+    Dim firstAngle As Boolean
+    Dim ok As Boolean
     Dim blockedRect As Object
-    Dim mainRect As Object
-    Dim rightRect As Object
+    Dim frontRect As Object
+    Dim sideRect As Object
     Dim topRect As Object
 
     scaleCandidates = Array(5#, 4#, 3#, 2#, 1.5, 1.25, 1#, 0.9, 0.8, 0.75, 0.67, 0.5, 0.4, 0.33, 0.25, 0.2, 0.1)
+    firstAngle = GetProjectionStandard(oDoc)
 
     Set blockedRect = GetTitleBlockBlockedRectCm(oDoc)
-    Set mainRect = GetMainViewRectCm(oDoc)
-    Set rightRect = GetRightProjectedRectCm(oDoc)
+    Set frontRect = GetFrontViewRectCm(oDoc)
+    Set sideRect = GetSideProjectedRectCm(oDoc)
     Set topRect = GetTopProjectedRectCm(oDoc)
+
+    selectedScale = FindBestScaleFor3Views(oSheet, oModelDoc, scaleCandidates, frontRect, topRect, sideRect, blockedRect, firstAngle)
+    ok = PlaceOrthographic3Views(oSheet, oModelDoc, selectedScale, frontRect, topRect, sideRect, blockedRect, firstAngle)
+
+    If Not ok Then
+        Debug.Print "LOG: could not fit full orthographic set; fallback scale=" & CStr(scaleCandidates(UBound(scaleCandidates)))
+        Call PlaceOrthographic3Views(oSheet, oModelDoc, CDbl(scaleCandidates(UBound(scaleCandidates))), frontRect, topRect, sideRect, blockedRect, firstAngle)
+    End If
+End Sub
+
+Private Function FindBestScaleFor3Views(ByVal oSheet As Sheet, ByVal oModelDoc As Document, ByVal scaleCandidates As Variant, _
+                                        ByVal frontRect As Object, ByVal topRect As Object, ByVal sideRect As Object, ByVal blockedRect As Object, _
+                                        ByVal firstAngle As Boolean) As Double
+    Dim i As Long
+    Dim scaleValue As Double
+    Dim fitsAll As Boolean
 
     For i = LBound(scaleCandidates) To UBound(scaleCandidates)
         scaleValue = CDbl(scaleCandidates(i))
-        EvaluateLayoutTrial oSheet, oModelDoc, scaleValue, mainRect, rightRect, topRect, blockedRect, baseFits, rightFits, topFits
-
-        Debug.Print "LOG: layout trial; scale=" & CStr(scaleValue) & "; baseFits=" & CStr(baseFits) & "; rightFits=" & CStr(rightFits) & "; topFits=" & CStr(topFits)
-
-        If baseFits Then
-            trialVariant = 1
-            trialArea = 0#
-            If rightFits Then trialVariant = trialVariant + 1
-            If topFits Then trialVariant = trialVariant + 1
-
-            trialArea = scaleValue
-
-            If (trialVariant > bestVariant) Or ((trialVariant = bestVariant) And (trialArea > bestArea)) Then
-                bestVariant = trialVariant
-                bestScale = scaleValue
-                bestHasRight = rightFits
-                bestHasTop = topFits
-                bestArea = trialArea
-            End If
-
-            If bestVariant = 3 Then Exit For
+        fitsAll = ProbeOrthographic3Layout(oSheet, oModelDoc, scaleValue, frontRect, topRect, sideRect, blockedRect, firstAngle)
+        Debug.Print "LOG: layout trial; scale=" & CStr(scaleValue) & "; fits3=" & CStr(fitsAll)
+        If fitsAll Then
+            FindBestScaleFor3Views = scaleValue
+            Exit Function
         End If
     Next i
 
-    If bestVariant = 0 Then
-        Debug.Print "LOG: Skipping model " & oModelDoc.DisplayName & " - View placement failed."
-        Exit Sub
-    End If
+    FindBestScaleFor3Views = CDbl(scaleCandidates(UBound(scaleCandidates)))
+End Function
 
-    PlaceSelectedLayout oSheet, oModelDoc, bestScale, bestHasRight, bestHasTop, mainRect, rightRect, topRect, blockedRect
-
-    If bestVariant = 3 Then
-        Debug.Print "LOG: layout selected; variant=BASE+RIGHT+TOP; scale=" & CStr(bestScale)
-    ElseIf bestVariant = 2 Then
-        If bestHasRight Then
-            Debug.Print "LOG: layout selected; variant=BASE+RIGHT; scale=" & CStr(bestScale)
-        Else
-            Debug.Print "LOG: layout selected; variant=BASE+TOP; scale=" & CStr(bestScale)
-        End If
-    Else
-        Debug.Print "LOG: layout selected; variant=BASE; scale=" & CStr(bestScale)
-    End If
-End Sub
-
-Private Sub EvaluateLayoutTrial(ByVal oSheet As Sheet, ByVal oModelDoc As Document, ByVal scaleValue As Double, _
-                                ByVal mainRect As Object, ByVal rightRect As Object, ByVal topRect As Object, ByVal blockedRect As Object, _
-                                ByRef baseFits As Boolean, ByRef rightFits As Boolean, ByRef topFits As Boolean)
+Private Function ProbeOrthographic3Layout(ByVal oSheet As Sheet, ByVal oModelDoc As Document, ByVal scaleValue As Double, _
+                                          ByVal frontRect As Object, ByVal topRect As Object, ByVal sideRect As Object, _
+                                          ByVal blockedRect As Object, ByVal firstAngle As Boolean) As Boolean
     Dim baseView As DrawingView
-    Dim rightView As DrawingView
     Dim topView As DrawingView
+    Dim sideView As DrawingView
 
-    baseFits = False
-    rightFits = False
-    topFits = False
+    ProbeOrthographic3Layout = False
 
     Set baseView = TryCreateBaseView(oSheet, oModelDoc, scaleValue)
-    If baseView Is Nothing Then Exit Sub
+    If baseView Is Nothing Then Exit Function
 
-    baseView.Center = Pt(RectCenterX(mainRect), RectCenterY(mainRect))
-    If DoesViewFitRect(baseView, mainRect) And (Not IsViewIntersectingBlockedArea(baseView, blockedRect)) Then
-        baseFits = True
+    baseView.Center = Pt(RectCenterX(frontRect), RectCenterY(frontRect))
+    If DoesViewFitRect(baseView, frontRect) And (Not IsViewIntersectingBlockedArea(baseView, blockedRect)) Then
+        Set topView = TryAddProjectedByOrientation(oSheet, baseView, topRect, blockedRect, kAboveViewOrientation, firstAngle)
+        Set sideView = TryAddProjectedByOrientation(oSheet, baseView, sideRect, blockedRect, kRightViewOrientation, firstAngle)
 
-        Set rightView = TryAddOneProjected(oSheet, baseView, rightRect, blockedRect, Pt(RectCenterX(rightRect), RectCenterY(rightRect)))
-        Set topView = TryAddOneProjected(oSheet, baseView, topRect, blockedRect, Pt(RectCenterX(topRect), RectCenterY(topRect)))
-
-        rightFits = Not rightView Is Nothing
-        topFits = Not topView Is Nothing
+        ProbeOrthographic3Layout = (Not topView Is Nothing) And (Not sideView Is Nothing)
     End If
 
     On Error Resume Next
+    If Not sideView Is Nothing Then sideView.Delete
     If Not topView Is Nothing Then topView.Delete
-    If Not rightView Is Nothing Then rightView.Delete
     If Not baseView Is Nothing Then baseView.Delete
     On Error GoTo 0
-End Sub
+End Function
 
-Private Sub PlaceSelectedLayout(ByVal oSheet As Sheet, ByVal oModelDoc As Document, ByVal scaleValue As Double, _
-                                ByVal addRight As Boolean, ByVal addTop As Boolean, _
-                                ByVal mainRect As Object, ByVal rightRect As Object, ByVal topRect As Object, ByVal blockedRect As Object)
+Private Function PlaceOrthographic3Views(ByVal oSheet As Sheet, ByVal oModelDoc As Document, ByVal scaleValue As Double, _
+                                         ByVal frontRect As Object, ByVal topRect As Object, ByVal sideRect As Object, _
+                                         ByVal blockedRect As Object, ByVal firstAngle As Boolean) As Boolean
     Dim baseView As DrawingView
+    Dim topView As DrawingView
+    Dim sideView As DrawingView
+    Dim sideCaption As String
 
     Set baseView = TryCreateBaseView(oSheet, oModelDoc, scaleValue)
-    If baseView Is Nothing Then Exit Sub
+    If baseView Is Nothing Then Exit Function
 
-    baseView.Center = Pt(RectCenterX(mainRect), RectCenterY(mainRect))
-    If Not DoesViewFitRect(baseView, mainRect) Or IsViewIntersectingBlockedArea(baseView, blockedRect) Then
+    baseView.Center = Pt(RectCenterX(frontRect), RectCenterY(frontRect))
+    If Not DoesViewFitRect(baseView, frontRect) Or IsViewIntersectingBlockedArea(baseView, blockedRect) Then
         baseView.Delete
-        Exit Sub
+        Exit Function
     End If
 
-    If addRight Then
-        Call TryAddOneProjected(oSheet, baseView, rightRect, blockedRect, Pt(RectCenterX(rightRect), RectCenterY(rightRect)))
+    Set topView = TryAddProjectedByOrientation(oSheet, baseView, topRect, blockedRect, kAboveViewOrientation, firstAngle)
+    Set sideView = TryAddProjectedByOrientation(oSheet, baseView, sideRect, blockedRect, kRightViewOrientation, firstAngle)
+
+    If topView Is Nothing Or sideView Is Nothing Then
+        On Error Resume Next
+        If Not sideView Is Nothing Then sideView.Delete
+        If Not topView Is Nothing Then topView.Delete
+        If Not baseView Is Nothing Then baseView.Delete
+        On Error GoTo 0
+        Exit Function
     End If
 
-    If addTop Then
-        Call TryAddOneProjected(oSheet, baseView, topRect, blockedRect, Pt(RectCenterX(topRect), RectCenterY(topRect)))
+    ApplyViewLabel baseView, RuText(1042, 1080, 1076, 32, 1089, 1087, 1077, 1088, 1077, 1076, 1080)
+    ApplyViewLabel topView, RuText(1042, 1080, 1076, 32, 1089, 1074, 1077, 1088, 1093, 1091)
+
+    If firstAngle Then
+        sideCaption = RuText(1042, 1080, 1076, 32, 1089, 1083, 1077, 1074, 1072)
+    Else
+        sideCaption = RuText(1042, 1080, 1076, 32, 1089, 1087, 1088, 1072, 1074, 1072)
     End If
-End Sub
+
+    ApplyViewLabel sideView, sideCaption
+    PlaceOrthographic3Views = True
+End Function
 
 Private Function TryCreateBaseView(ByVal oSheet As Sheet, ByVal oModelDoc As Document, ByVal scaleValue As Double) As DrawingView
     Dim centerPt As Point2d
@@ -349,12 +346,26 @@ EH:
     Set TryCreateBaseView = Nothing
 End Function
 
-Private Function TryAddOneProjected(ByVal oSheet As Sheet, ByVal baseView As DrawingView, ByVal targetRect As Object, ByVal blockedRect As Object, ByVal targetPt As Point2d) As DrawingView
+Private Function TryAddProjectedByOrientation(ByVal oSheet As Sheet, ByVal baseView As DrawingView, ByVal targetRect As Object, _
+                                              ByVal blockedRect As Object, ByVal orientation As DrawingViewOrientationEnum, _
+                                              ByVal firstAngle As Boolean) As DrawingView
     Dim projView As DrawingView
+    Dim targetPt As Point2d
+    Dim projectedOrientation As DrawingViewOrientationEnum
 
     On Error GoTo EH
 
-    Set projView = oSheet.DrawingViews.AddProjectedView(baseView, targetPt, kHiddenLineRemovedDrawingViewStyle)
+    projectedOrientation = orientation
+    If orientation = kRightViewOrientation Then
+        If firstAngle Then
+            projectedOrientation = kLeftViewOrientation
+        Else
+            projectedOrientation = kRightViewOrientation
+        End If
+    End If
+    Set targetPt = Pt(RectCenterX(targetRect), RectCenterY(targetRect))
+
+    Set projView = oSheet.DrawingViews.AddProjectedView(baseView, targetPt, kHiddenLineRemovedDrawingViewStyle, projectedOrientation)
     If projView Is Nothing Then Exit Function
 
     If Not DoesViewFitRect(projView, targetRect) Then
@@ -368,7 +379,7 @@ Private Function TryAddOneProjected(ByVal oSheet As Sheet, ByVal baseView As Dra
         Set projView = Nothing
     End If
 
-    Set TryAddOneProjected = projView
+    Set TryAddProjectedByOrientation = projView
     Exit Function
 EH:
     ThisApplication.SilentOperation = False
@@ -376,8 +387,33 @@ EH:
     On Error Resume Next
     If Not projView Is Nothing Then projView.Delete
     On Error GoTo 0
-    Set TryAddOneProjected = Nothing
+    Set TryAddProjectedByOrientation = Nothing
+End Function
+
+Private Sub ApplyViewLabel(ByVal oView As DrawingView, ByVal caption As String)
+    Dim oldText As String
+    Dim posX As Double
+    Dim posY As Double
+
+    If oView Is Nothing Then Exit Sub
+    If oView.Label Is Nothing Then Exit Sub
+
+    oView.ShowLabel = True
+    oldText = oView.Label.FormattedText
+    oView.Label.FormattedText = caption & vbCrLf & oldText
+
+    posX = oView.Left + MmToCm(oView.Parent.Parent, LABEL_MARGIN_MM)
+    posY = (oView.Top - oView.Height) - MmToCm(oView.Parent.Parent, LABEL_OFFSET_MM)
+    oView.Label.Position = Pt(posX, posY)
 End Sub
+
+Private Function GetProjectionStandard(ByVal oDoc As DrawingDocument) As Boolean
+    On Error GoTo EH
+    GetProjectionStandard = oDoc.StylesManager.ActiveStandardStyle.FirstAngleProjection
+    Exit Function
+EH:
+    GetProjectionStandard = True
+End Function
 
 Private Function IsViewInsideSafeArea(ByVal oDoc As DrawingDocument, ByVal oView As DrawingView) As Boolean
     IsViewInsideSafeArea = DoesViewFitRect(oView, GetSheetSafeRectCm(oDoc))
@@ -400,16 +436,20 @@ End Function
 
 Private Function GetTitleBlockBlockedRectCm(ByVal oDoc As DrawingDocument) As Object
     Dim safeRect As Object
+    Dim rightEdge As Double
+    Dim bottomEdge As Double
 
     Set safeRect = GetSheetSafeRectCm(oDoc)
+    rightEdge = safeRect("Right")
+    bottomEdge = safeRect("Bottom")
     Set GetTitleBlockBlockedRectCm = CreateRect( _
-        MmToCm(oDoc, TITLE_SAFE_LEFT_MM), _
-        safeRect("Right"), _
-        safeRect("Bottom"), _
-        MmToCm(oDoc, TITLE_SAFE_TOP_MM))
+        rightEdge - MmToCm(oDoc, BLOCKED_W_MM), _
+        rightEdge, _
+        bottomEdge, _
+        bottomEdge + MmToCm(oDoc, BLOCKED_H_MM))
 End Function
 
-Private Function GetMainViewRectCm(ByVal oDoc As DrawingDocument) As Object
+Private Function GetFrontViewRectCm(ByVal oDoc As DrawingDocument) As Object
     Dim safeRect As Object
     Dim splitX As Double
     Dim splitY As Double
@@ -417,10 +457,10 @@ Private Function GetMainViewRectCm(ByVal oDoc As DrawingDocument) As Object
 
     Set safeRect = InsetRect(GetSheetSafeRectCm(oDoc), MmToCm(oDoc, LAYOUT_PAD_MM))
     padCm = MmToCm(oDoc, GAP_MM)
-    splitX = safeRect("Left") + RectWidth(safeRect) * 0.67
-    splitY = safeRect("Bottom") + RectHeight(safeRect) * 0.6
+    splitX = safeRect("Right") - RectWidth(safeRect) * SIDE_COL_RATIO
+    splitY = safeRect("Top") - RectHeight(safeRect) * TOP_ROW_RATIO
 
-    Set GetMainViewRectCm = CreateRect(safeRect("Left"), splitX - padCm, safeRect("Bottom"), splitY - padCm)
+    Set GetFrontViewRectCm = CreateRect(safeRect("Left"), splitX - padCm, safeRect("Bottom"), splitY - padCm)
 End Function
 
 Private Function GetTopProjectedRectCm(ByVal oDoc As DrawingDocument) As Object
@@ -431,30 +471,33 @@ Private Function GetTopProjectedRectCm(ByVal oDoc As DrawingDocument) As Object
 
     Set safeRect = InsetRect(GetSheetSafeRectCm(oDoc), MmToCm(oDoc, LAYOUT_PAD_MM))
     padCm = MmToCm(oDoc, GAP_MM)
-    splitX = safeRect("Left") + RectWidth(safeRect) * 0.67
-    splitY = safeRect("Bottom") + RectHeight(safeRect) * 0.6
+    splitX = safeRect("Right") - RectWidth(safeRect) * SIDE_COL_RATIO
+    splitY = safeRect("Top") - RectHeight(safeRect) * TOP_ROW_RATIO
 
-    Set GetTopProjectedRectCm = CreateRect(safeRect("Left"), splitX - padCm, splitY + padCm, safeRect("Top"))
+    Set GetTopProjectedRectCm = CreateRect(safeRect("Left"), splitX - padCm, splitY + padCm, safeRect("Top") - padCm)
 End Function
 
-Private Function GetRightProjectedRectCm(ByVal oDoc As DrawingDocument) As Object
+Private Function GetSideProjectedRectCm(ByVal oDoc As DrawingDocument) As Object
     Dim safeRect As Object
     Dim blockedRect As Object
     Dim splitX As Double
     Dim splitY As Double
     Dim padCm As Double
+    Dim topLimit As Double
     Dim bottomLimit As Double
 
     Set safeRect = InsetRect(GetSheetSafeRectCm(oDoc), MmToCm(oDoc, LAYOUT_PAD_MM))
     Set blockedRect = GetTitleBlockBlockedRectCm(oDoc)
     padCm = MmToCm(oDoc, GAP_MM)
-    splitX = safeRect("Left") + RectWidth(safeRect) * 0.67
-    splitY = safeRect("Bottom") + RectHeight(safeRect) * 0.6
+    splitX = safeRect("Right") - RectWidth(safeRect) * SIDE_COL_RATIO
+    splitY = safeRect("Top") - RectHeight(safeRect) * TOP_ROW_RATIO
     bottomLimit = blockedRect("Top") + padCm
+    topLimit = splitY - padCm
 
     If bottomLimit < safeRect("Bottom") Then bottomLimit = safeRect("Bottom")
+    If topLimit > safeRect("Top") Then topLimit = safeRect("Top")
 
-    Set GetRightProjectedRectCm = CreateRect(splitX + padCm, safeRect("Right"), bottomLimit, safeRect("Top"))
+    Set GetSideProjectedRectCm = CreateRect(splitX + padCm, safeRect("Right") - padCm, bottomLimit, topLimit)
 End Function
 
 Private Function RectWidth(ByVal rect As Object) As Double
