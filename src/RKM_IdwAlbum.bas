@@ -11,8 +11,6 @@ Private Const TOP_ROW_RATIO As Double = 0.36
 Private Const SIDE_COL_RATIO As Double = 0.34
 Private Const LABEL_OFFSET_MM As Double = 4#
 Private Const LABEL_MARGIN_MM As Double = 2#
-Private Const PROJ_ROLE_TOP As Long = 1
-Private Const PROJ_ROLE_SIDE As Long = 2
 
 Public Sub Rkm_BuildOrUpdateIdwAlbum()
     Dim oDoc As DrawingDocument
@@ -278,8 +276,8 @@ Private Function ProbeOrthographic3Layout(ByVal oSheet As Sheet, ByVal oModelDoc
 
     baseView.Center = Pt(RectCenterX(frontRect), RectCenterY(frontRect))
     If DoesViewFitRect(baseView, frontRect) And (Not IsViewIntersectingBlockedArea(baseView, blockedRect)) Then
-        Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, PROJ_ROLE_TOP, firstAngle)
-        Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, PROJ_ROLE_SIDE, firstAngle)
+        Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, BuildTopTargetPoint(baseView, topRect, firstAngle))
+        Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, BuildSideTargetPoint(baseView, sideRect))
 
         ProbeOrthographic3Layout = (Not topView Is Nothing) And (Not sideView Is Nothing)
     End If
@@ -308,8 +306,8 @@ Private Function PlaceOrthographic3Views(ByVal oSheet As Sheet, ByVal oModelDoc 
         Exit Function
     End If
 
-    Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, PROJ_ROLE_TOP, firstAngle)
-    Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, PROJ_ROLE_SIDE, firstAngle)
+    Set topView = TryAddProjectedView(oSheet, baseView, topRect, blockedRect, BuildTopTargetPoint(baseView, topRect, firstAngle))
+    Set sideView = TryAddProjectedView(oSheet, baseView, sideRect, blockedRect, BuildSideTargetPoint(baseView, sideRect))
 
     If topView Is Nothing Or sideView Is Nothing Then
         On Error Resume Next
@@ -349,14 +347,11 @@ EH:
 End Function
 
 Private Function TryAddProjectedView(ByVal oSheet As Sheet, ByVal baseView As DrawingView, ByVal targetRect As Object, _
-                                     ByVal blockedRect As Object, ByVal projRole As Long, _
-                                     ByVal firstAngle As Boolean) As DrawingView
+                                     ByVal blockedRect As Object, ByVal targetPt As Point2d) As DrawingView
     Dim projView As DrawingView
-    Dim targetPt As Point2d
 
     On Error GoTo EH
 
-    Set targetPt = BuildProjectedTargetPoint(baseView, targetRect, projRole, firstAngle)
     Set projView = oSheet.DrawingViews.AddProjectedView(baseView, targetPt, kHiddenLineRemovedDrawingViewStyle)
     If projView Is Nothing Then Exit Function
 
@@ -382,35 +377,34 @@ EH:
     Set TryAddProjectedView = Nothing
 End Function
 
-Private Function BuildProjectedTargetPoint(ByVal baseView As DrawingView, ByVal targetRect As Object, _
-                                           ByVal projRole As Long, ByVal firstAngle As Boolean) As Point2d
+Private Function BuildTopTargetPoint(ByVal baseView As DrawingView, ByVal targetRect As Object, ByVal firstAngle As Boolean) As Point2d
     Dim targetX As Double
     Dim targetY As Double
-    Dim baseX As Double
     Dim baseY As Double
 
-    baseX = baseView.Center.X
     baseY = baseView.Center.Y
-    targetX = RectCenterX(targetRect)
+    targetX = baseView.Center.X
     targetY = RectCenterY(targetRect)
 
-    Select Case projRole
-        Case PROJ_ROLE_TOP
-            targetX = baseX
-            If firstAngle Then
-                targetY = targetRect("Bottom") + RectHeight(targetRect) / 2#
-                If targetY >= baseY Then targetY = baseY - 0.01
-            Else
-                targetY = targetRect("Bottom") + RectHeight(targetRect) / 2#
-                If targetY <= baseY Then targetY = baseY + 0.01
-            End If
-        Case PROJ_ROLE_SIDE
-            targetY = baseY
-            targetX = targetRect("Left") + RectWidth(targetRect) / 2#
-            If targetX <= baseX Then targetX = baseX + 0.01
-    End Select
+    If firstAngle Then
+        If targetY >= baseY Then targetY = baseY - 0.01
+    Else
+        If targetY <= baseY Then targetY = baseY + 0.01
+    End If
 
-    Set BuildProjectedTargetPoint = Pt(targetX, targetY)
+    Set BuildTopTargetPoint = Pt(targetX, targetY)
+End Function
+
+Private Function BuildSideTargetPoint(ByVal baseView As DrawingView, ByVal targetRect As Object) As Point2d
+    Dim targetX As Double
+    Dim targetY As Double
+
+    targetX = RectCenterX(targetRect)
+    targetY = baseView.Center.Y
+
+    If targetX <= baseView.Center.X Then targetX = baseView.Center.X + 0.01
+
+    Set BuildSideTargetPoint = Pt(targetX, targetY)
 End Function
 
 Private Sub ApplyViewLabel(ByVal oView As DrawingView, ByVal caption As String)
