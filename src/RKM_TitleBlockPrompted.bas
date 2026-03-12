@@ -62,7 +62,8 @@ Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleB
     sPrompts(6) = "1"
     sPrompts(7) = "10"
 
-    oSheet.AddTitleBlock oDef, , sPrompts
+    Dim newTitleBlock As TitleBlock
+    Set newTitleBlock = oSheet.AddTitleBlock(oDef, , sPrompts)
     Exit Sub
 
 AddTitleBlockFailed:
