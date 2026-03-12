@@ -68,6 +68,7 @@ ContinueLoop:
     Debug.Print "LOG: IDW album build/update completed: " & CStr(modelCount) & " sheets."
     GoTo CleanUp
 EH:
+    ThisApplication.SilentOperation = False
     hadFatalError = True
     fatalMessage = Err.Description
     Debug.Print "LOG: Album build failed: " & fatalMessage
@@ -118,6 +119,7 @@ Private Function TryCreateBaseView(ByVal oSheet As Sheet, ByVal oModelDoc As Doc
         oModelDoc, centerPt, scaleValue, kFrontViewOrientation, kHiddenLineRemovedDrawingViewStyle)
     Exit Function
 EH:
+    ThisApplication.SilentOperation = False
     Set TryCreateBaseView = Nothing
 End Function
 
@@ -156,6 +158,7 @@ Private Sub TryAddOneProjected(ByVal oDoc As DrawingDocument, ByVal oSheet As Sh
 
     Exit Sub
 EH:
+    ThisApplication.SilentOperation = False
     On Error Resume Next
     If Not projView Is Nothing Then projView.Delete
     On Error GoTo 0
@@ -426,6 +429,7 @@ Private Function GetProjectWorkspacePath() As String
     GetProjectWorkspacePath = oProj.WorkspacePath
     Exit Function
 EH:
+    ThisApplication.SilentOperation = False
     GetProjectWorkspacePath = ""
 End Function
 
@@ -449,6 +453,6 @@ Private Function OpenModelDocument(ByVal modelPath As String) As Document
     ThisApplication.SilentOperation = previousSilentOperation
     Exit Function
 EH:
-    ThisApplication.SilentOperation = previousSilentOperation
+    ThisApplication.SilentOperation = False
     Set OpenModelDocument = Nothing
 End Function
