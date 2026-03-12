@@ -69,7 +69,9 @@ Public Sub ApplyRkmTitleBlockToSheet(ByVal oSheet As Sheet, ByVal oDef As TitleB
 
     Dim newTitleBlock As TitleBlock
     ThisApplication.SilentOperation = True
-    Set newTitleBlock = oSheet.AddTitleBlock(oDef, , sPrompts)
+    If Not oDef Is Nothing Then
+        Set newTitleBlock = oSheet.AddTitleBlock(oDef, , sPrompts)
+    End If
     ThisApplication.SilentOperation = False
     Exit Sub
 

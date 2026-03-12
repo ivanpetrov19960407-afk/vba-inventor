@@ -44,8 +44,10 @@ Public Sub Rkm_BuildOrUpdateIdwAlbum()
         If oSheet Is Nothing Then GoTo ContinueLoop
 
         oSheet.Activate
+        On Error Resume Next
         oSheet.Size = kA3DrawingSheetSize
         oSheet.Orientation = kLandscapePageOrientation
+        On Error GoTo EH
 
         RemoveAllDrawingViews oSheet
         ApplyRkmBorderToSheet oSheet, borderDef
